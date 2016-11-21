@@ -15,7 +15,11 @@ private:
     unsigned char *p;
     size_t w, h;
     const static size_t c = 1;
-
+    Halide::Image<double> pyrLayer0;
+    Halide::Image<double> pyrLayer1;
+    Halide::Image<double> pyrLayer2;
+    Halide::Image<double> pyrLayer3;
+    
 public:       
 
     RAWImage()

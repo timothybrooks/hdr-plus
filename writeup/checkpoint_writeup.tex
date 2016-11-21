@@ -21,8 +21,6 @@
 %%%%% FILL OUT INFO HERE %%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%doot
-
 \newcommand{\myname}{Tim Brooks, Suhaas Reddy}
 \newcommand{\coursenumber}{15-769 }
 \newcommand{\duedate}{21 November 2016}
@@ -63,13 +61,12 @@
 
 \vspace{0.2in}
 
-\text{Andrew ID: \andrewid}
+\text{Andrew IDs: \andrewid}
 
 \vspace{.2in}
 
 \text{Professor: \professor}
 
-% End title box
 \
 
 \vspace{0.2in}
@@ -80,13 +77,13 @@
 \question{Starter code (if any)}
 
     \sol{
-    We are not using any starter code for the main HDR+ pipeline, but we may call a library to convert the raw DNG images into greyscale bayer pattern images which we can load directly into our pipeline. We hope to integrate this script so that users can more easily run our pipeline on a burst of raw images.
+    We are not using any starter code for the main HDR+ pipeline, but for now we are using dcraw to convert DNG RAW images into a greyscale format which we will treat as RAW for the rest of the pipeline. Dcraw is implemented as a command line script rather than a library, so we can't easily call it directly from the pipeline, but we may customize it more in the future.
     }
 
 \question{Initial workloads/datasets for project. Why are these workloads a good choice?}
 
     \sol{
-    We have taken a few handheld raw bursts with a DSLR camera as well as a regularly exposed comparison shot for each burst. We would prefer to use the original Google dataset from the burst photography paper, but Andrew Adams suggested we take our own photographs while we wait for the dataset to be released. We took a wide array of photographs including a pathological case (a flag flapping in the wind) to make sure our pipeline correctly handles various lighting and misalignment conditions.
+    We have taken a few handheld raw bursts with a DSLR camera as well as a regularly exposed comparison shot for each burst. We would prefer to use the original Google dataset from the burst photography paper, but Andrew Adams suggested we take our own photographs while we wait for the dataset to be released. We took a wide array of photographs including a pathological case (a flag flapping in the wind) to make sure our pipeline correctly handles various lighting and misalignment conditions. In this pathological case it should detect the extreme misalignment and reject the tiles containing the flag in all alternate frames.
     }
 
 \question{Restated expectations}

@@ -7,7 +7,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "include/stb_image_write.h"
 
-double variance(size_t windowWidth, size_t windowHeight) {
+double RAWImage::variance(size_t windowWidth, size_t windowHeight) {
     if (windowWidth > this->width() || windowHeight > this->height()) {
         throw std::runtime_error("Invalid variance window size");
     }
@@ -48,9 +48,21 @@ void RAWImage::write(std::string filename) {
 }
 
 void RAWImage::makePyramid() {
-    
+    //Downsampled bayer to greyscale
+    Halide::Func layer0;
+    layer0(x,y) = ((double)this->pixel(x/2,y/2) + (double)this->pixel(x/2 + 1, y/2) + (double)this->pixel(x/2, y/2 + 1) + (double)this->pixel(x/2 + 1, y/2 + 1)) / 4.0;
+    this->pyrLayer0 = layer0.realize(this->width(), this->height());
+
+    Halide::Image<float> pyrLayer1;
+    this->pyrLayer1(x,y) = (pyrLayer0(x/2,y/2) + pyrLayer0(x/2 + 1, y/2) + pyrLayer0(x/2, y/2 + 1) + pyrLayer0(x/2 + 1, y/2 + 1)) / 4.0;
+
+    Halide::Image<float> pyrLayer2;
+    this->pyrLayer2(x,y) = (pyrLayer1(x/2,y/2) + pyrLayer1(x/2 + 1, y/2) + pyrLayer1(x/2, y/2 + 1) + pyrLayer1(x/2 + 1, y/2 + 1)) / 4.0;
+
+    Halide::Image<float> pyrLayer3;
+    this->pyrLayer3(x,y) = (pyrLayer2(x/2,y/2) + pyrLayer2(x/2 + 1, y/2) + pyrLayer2(x/2, y/2 + 1) + pyrLayer2(x/2 + 1, y/2 + 1)) / 4.0;
 }
 
 Image RAWImage::demosaic() {
-    
+    return Image();
 }
