@@ -1,3 +1,6 @@
+#ifndef IMAGE_H
+#define IMAGE_H
+
 namespace HDRPlusPipeline
 {
     class Image
@@ -48,3 +51,4 @@ namespace HDRPlusPipeline
     };
 }
 
+#endif

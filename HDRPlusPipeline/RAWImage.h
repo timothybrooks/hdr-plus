@@ -1,3 +1,8 @@
+#ifndef RAW_IMAGE_H
+#define RAW_IMAGE_H
+
+#include "Image.h"
+
 namespace HDRPlusPipeline
 {
     class RAWImage
@@ -46,3 +51,4 @@ namespace HDRPlusPipeline
     };
 }
 
+#endif
