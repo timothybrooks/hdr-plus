@@ -15,8 +15,7 @@ class Burst {
 
         Burst(std::string name, std::vector<std::string> imFileNames) : name(name), burstLength(imFileNames.size()) {
             if (this->burstLength < 2) {
-                std::cerr << "too few images in burst" << std::endl;
-                exit(1);
+                throw std::exception("too few images in burst");
             } else if (this->burstLength > MAX_BURST_LENGTH) {
                 std::cout << "Too many images in burst. Ignoring beyond the first " << MAX_BURST_LENGTH << " frames." << std::endl;
                 this->burstLength = MAX_BURST_LENGTH;
