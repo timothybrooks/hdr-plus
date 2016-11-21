@@ -22,9 +22,9 @@ class Burst {
             }
             this->alternates.resize(this->burstLength-1);
             this->reference = new RAWImage(imFileNames[0]);
-            size_t bestVariance = this->reference->variance(); //TODO IMPLEMENT VARIANCE() FOR RAWIMAGES
+            float bestVariance = this->reference->variance(); //TODO IMPLEMENT VARIANCE() FOR RAWIMAGES
             RAWImage* currRAWImage = NULL;
-            size_t currVariance;
+            float currVariance;
             
             //TODO profile this to see whether it could be improved with parallelism. Probably bandwidth-bound
             for (size_t i = 1; i < std::min(this->burstLength,3); i++) {
