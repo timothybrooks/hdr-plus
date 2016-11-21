@@ -1,54 +1,56 @@
+#include <stdlib.h>
+#include <string>
+#include <stdexcept>
+
 #ifndef IMAGE_H
 #define IMAGE_H
 
-namespace HDRPlusPipeline
+class Image
 {
-    class Image
+
+private:
+    unsigned char *p;
+    size_t w, h;
+    const static size_t c = 3;
+
+    void toneMap();
+
+public:       
+
+    Image()
     {
+        w = h = 0;
+        p = NULL;
+    }
 
-    private:
-        double *p;
-        size_t w, h;
+    Image(size_t width, size_t height, unsigned char *pixels) : w(width), h(height), p(pixels) {}
 
-        void toneMap();
+    Image(std::string filename) {
+        read(filename);
+    }
 
-    public:       
+    inline size_t width() {
+        return w;
+    }
 
-        Image()
-        {
-            w = h = 0;
-            p = NULL;
+    inline size_t height() {
+        return h;
+    }
+
+    inline unsigned char* pixels() {
+        return p;
+    }
+
+    inline unsigned char pixel(size_t x, size_t y, size_t z) {
+        if (x < 0 || x >= w || y < 0 || y >= h || z < 0 || z >= c) {
+            throw std::out_of_range("Tried accessing a pixel out of the image boundaries");
         }
+        return p[c * (y * w + x) + z];
+    }
 
-        Image(size_t width, size_t height, double *pixels) w(width), h(height), p(pixels) {}
-
-        Image(std::string filename) {
-            read(filename);
-        }
-
-        inline size_t width() {
-            return w;
-        }
-
-        inline size_t height() {
-            return h;
-        }
-
-        inline double* pixels() {
-            return p;
-        }
-
-        inline double pixel(size_t x, size_t y, size_t c) {
-            if (x < 0 || x >= w || y < 0 || y >= h || c < 0 || c >= 3) {
-                throw std::out_of_range("Tried accessing a pixel out of the image boundaries");
-            }
-            return p[3 * (y * w + x) + c];
-        }
-
-        void read(std::string filename);
-        void write(std::string filename);
-        void finish();
-    };
-}
+    void read(std::string filename);
+    void write(std::string filename);
+    void finish();
+};
 
 #endif
