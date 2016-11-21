@@ -1,6 +1,5 @@
 #include "Image.h"
 #include <exception>
-#include <iostream>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "include/stb_image.h"
@@ -9,21 +8,19 @@
 #include "include/stb_image_write.h"
 
 void Image::read(std::string filename) {
-    int _w, _h, num_input_channels;
+    int _w, _h, _num_input_channels; // We do not care about the number of input channels
 
-    p = stbi_load(filename.c_str(), &_w, &_h, &num_input_channels, c);
-    w = _w; h = _h;
+    p = stbi_load(filename.c_str(), &_w, &_h, &_num_input_channels, c);
+    w = _w; h = _h; // int* type must be passed to stbi_load
 
     if (!p) {
-        throw std::runtime_error("Cannot read file '" + filename + "'");
+        throw std::runtime_error("STBI Error: " + (std::string)(stbi_failure_reason()) + ". Cannot read file '" + filename + "'");
     }
-    std::cout << "w: " << w << ", h: " << h << std::endl;
 }
 
 void Image::write(std::string filename) {
-    int stride_in_bytes = 1;
     if(!stbi_write_png(filename.c_str(), w, h, c, p, w*c)) {
-        throw std::runtime_error("Cannot write file '" + filename + "'");
+        throw std::runtime_error("STBI Error: " + (std::string)(stbi_failure_reason()) + ". Cannot write file '" + filename + "'");
     }
 }
 
