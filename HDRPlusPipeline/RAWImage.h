@@ -1,7 +1,10 @@
 #ifndef RAW_IMAGE_H
 #define RAW_IMAGE_H
 
+#include <exception>
+
 #include "Image.h"
+#include "Halide.h"
 
 #define VAR_WINDOW_RATIO
 
@@ -46,9 +49,10 @@
             return p[y * w + x];
         }
         //estimate of contrast based on Welford's algorithm for approximating variance
-        float variance(size_t windowWidth = width / VAR_WINDOW_RATIO, size_t windowHeight = height / VAR_WINDOW_RATIO);
+        double variance(size_t windowWidth = width / VAR_WINDOW_RATIO, size_t windowHeight = height / VAR_WINDOW_RATIO);
         void read(std::string filename);
         void write(std::string filename);
+        void makePyramid();
         Image demosaic();
     };
 }

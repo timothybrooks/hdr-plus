@@ -3,7 +3,7 @@
 {
     double variance(size_t windowWidth, size_t windowHeight) {
         if (windowWidth > this->width() || windowHeight > this->height()) {
-            throw std::exception("Invalid variance window size");
+            throw std::runtime_error("Invalid variance window size");
         }
         double avg = 0.0;
         double M = 0.0;
@@ -29,6 +29,10 @@
     }
 
     void RAWImage::write(std::string filename) {
+        
+    }
+
+    void RAWImage::makePyramid() {
         
     }
 
