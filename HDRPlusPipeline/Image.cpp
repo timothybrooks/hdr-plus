@@ -17,11 +17,12 @@ void Image::read(std::string filename) {
     if (!p) {
         throw std::runtime_error("Cannot read file '" + filename + "'");
     }
+    std::cout << "w: " << w << ", h: " << h << std::endl;
 }
 
 void Image::write(std::string filename) {
     int stride_in_bytes = 1;
-    if(!stbi_write_png(filename.c_str(), w, h, c, p, stride_in_bytes)) {
+    if(!stbi_write_png(filename.c_str(), w, h, c, p, w*c)) {
         throw std::runtime_error("Cannot write file '" + filename + "'");
     }
 }
