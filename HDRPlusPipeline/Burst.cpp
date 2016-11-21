@@ -22,14 +22,14 @@ class Burst {
             }
             this->alternates.resize(this->burstLength-1);
             this->reference = new RAWImage(imFileNames[0]);
-            size_t bestVariance = this->reference->getVariance(); //TODO IMPLEMENT GETVARIANCE FOR RAWIMAGES
+            size_t bestVariance = this->reference->variance(); //TODO IMPLEMENT VARIANCE() FOR RAWIMAGES
             RAWImage* currRAWImage = NULL;
             size_t currVariance;
             
             //TODO profile this to see whether it could be improved with parallelism. Probably bandwidth-bound
             for (size_t i = 1; i < std::min(this->burstLength,3); i++) {
                 currRAWImage = new RAWImage(imFileNames[i]);
-                currVariance = currRAWImage->getVariance();
+                currVariance = currRAWImage->variance();
                 if (currVariance > bestVariance) {
                     this->alternates[i-1] = this->reference;
                     bestVariance = currVariance;
@@ -42,9 +42,8 @@ class Burst {
             for (size_t i = 3; i < this->burstLength, i++) {
                 this->alternates[i-1] = new RAWImage(imFileNames[i]);
             }
-            this->width = this->reference->getWidth();
-            this->height = this->reference->getHeight();
-            this->metadata = this->reference->getMetadata(); //TODO IMPLEMENT GETMETADATA FOR RAWIMAGES
+            this->width = this->reference->width();
+            this->height = this->reference->height();
         }
 
         RAWImage merge(void) {
