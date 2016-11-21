@@ -2,11 +2,6 @@
 
 class Burst {
     private:
-
-        void findReferenceFrame(void) {
-            return;
-        }
-
         void align(void) {
             return;
         }
@@ -22,7 +17,7 @@ class Burst {
             }
             this->alternates.resize(this->burstLength-1);
             this->reference = new RAWImage(imFileNames[0]);
-            float bestVariance = this->reference->variance(); //TODO IMPLEMENT VARIANCE() FOR RAWIMAGES
+            float bestVariance = this->reference->variance();
             RAWImage* currRAWImage = NULL;
             float currVariance;
             

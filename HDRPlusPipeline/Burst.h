@@ -10,29 +10,26 @@
 using namespace Halide;
 
 /*
- * Image -- 
+ * Burst -- 
  * 
- * Class containing methods relating to the output data for
- * the HDRPlus pipeline. This includes toneMapping and other
- * methods for finishing based on the metadata passed up by
- * the merge and align steps as well as the RAW reference
- * image's metadata.
+ * Class containing methods relating to the align and merge stages of the pipeline. The Burst selects
+ * a reference frame to base its results on, and attempts to align patches of the other images with that
+ * reference frame. If reasonable matches are found, the matching patch is blended into the reference
+ * frame in the merge step.
  */
 
 class Burst {
     private:
         std::string name;
+        size_t burstLength;
         size_t width;
         size_t height;
         RAWImage* reference;
         std::vector<RAWImage*> alternates;
 
-        //finds the best frame in the burst to be used as the reference
-        //for the rest of the pipeline. Removes that frame from the
-        //alternates. Currently the criteria for "best" ref frame are based
-        //on the HDR+ Burst paper: The ref frame is the sharpest of the first
-        //three RAWImages in the burst. Also stores reference frame metadata.
-        void findReferenceFrame(void);
+        void align(void) {
+            return;
+        }
 
     public:
         //Constructor
@@ -42,7 +39,12 @@ class Burst {
         RawImage merge(void);
 
         //Destructor
-        virtual ~Burst() {};
+        virtual ~Burst() {
+            for (size_t i = 0; i < this->burstLength-1; i++) {
+                delete this->alternates[i];
+            }
+            delete this->reference;
+        };
 
 
 };
