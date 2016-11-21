@@ -10,13 +10,15 @@ class Burst {
 
         Burst(std::string name, std::vector<std::string> imFileNames) : name(name), burstLength(imFileNames.size()) {
             if (this->burstLength < 2) {
-                throw std::exception("too few images in burst");
+                throw std::runtime_error("too few images in burst");
             } else if (this->burstLength > MAX_BURST_LENGTH) {
                 std::cout << "Too many images in burst. Ignoring beyond the first " << MAX_BURST_LENGTH << " frames." << std::endl;
                 this->burstLength = MAX_BURST_LENGTH;
             }
             this->alternates.resize(this->burstLength-1);
             this->reference = new RAWImage(imFileNames[0]);
+            this->width = this->reference->width();
+            this->height = this->reference->height();
             float bestVariance = this->reference->variance();
             RAWImage* currRAWImage = NULL;
             float currVariance;
@@ -24,6 +26,9 @@ class Burst {
             //TODO profile this to see whether it could be improved with parallelism. Probably bandwidth-bound
             for (size_t i = 1; i < std::min(this->burstLength,3); i++) {
                 currRAWImage = new RAWImage(imFileNames[i]);
+                if (currRAWImage->width() != this->width() || currRAWImage->height() != this->height()) {
+                    throw std::runtime_error("RAWImage dimensions in burst do not match");
+                }
                 currVariance = currRAWImage->variance();
                 if (currVariance > bestVariance) {
                     this->alternates[i-1] = this->reference;
@@ -42,6 +47,7 @@ class Burst {
         }
 
         RAWImage merge(void) {
+
             return RAWImage();
         }
 

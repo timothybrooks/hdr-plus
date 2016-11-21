@@ -1,5 +1,6 @@
-#include<iostream>
+#include <iostream>
 #include <vector>
+#include <exception>
 
 #include "Halide.h"
 #include "RAWImage.h"
@@ -35,6 +36,9 @@ class Burst {
         //Constructor
         Burst(std::string name, std::vector<std::string> imFileNames);
 
+        inline size_t width(void) {return width;}
+        inline size_t height(void) {return height;}
+
         //Compute the merged raw image by aligning patches of the alternates with the reference frame.
         RawImage merge(void);
 
@@ -44,7 +48,7 @@ class Burst {
                 delete this->alternates[i];
             }
             delete this->reference;
-        };
+        }
 
 
 };
