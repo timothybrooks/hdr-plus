@@ -8,9 +8,9 @@ class Image
 {
 
 private:
+    const static size_t c = 3;
     size_t w, h;
     unsigned char *p;
-    const static size_t c = 3;
 
     void toneMap();
 
@@ -45,6 +45,7 @@ public:
 
     void read(std::string filename);
     void write(std::string filename);
+    
     void finish();
 };
 

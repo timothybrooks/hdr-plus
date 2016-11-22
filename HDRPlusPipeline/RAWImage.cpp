@@ -5,10 +5,7 @@
 #include "include/stb_image.h"
 #include "include/stb_image_write.h"
 
-double RAWImage::variance(size_t windowWidth, size_t windowHeight) {
-    if (windowWidth > this->width() || windowHeight > this->height()) {
-        throw std::runtime_error("Invalid variance window size");
-    }
+double RAWImage::variance() {
     double avg = 0.0;
     double M = 0.0;
     double delta;
@@ -16,6 +13,7 @@ double RAWImage::variance(size_t windowWidth, size_t windowHeight) {
     uint32_t n = 0;
     size_t startX = this->width() - windowWidth / 2;
     size_t startY = this->height() - windowHeight / 2;
+    
     for (size_t y = startY; y < startY + windowHeight; y++) {
         for (size_t x = startX; x < startX + windowWidth; x++) {
             n++;

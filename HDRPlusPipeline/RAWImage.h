@@ -5,22 +5,20 @@
 #include <stdexcept>
 
 #include "Image.h"
-
 //#include "Halide.h"
-
-#define VAR_WINDOW_RATIO
 
 class RAWImage
 {
 
 private:
     const static size_t c = 1;
+    size_t w, h;
+    unsigned char *p;
+
     // Halide::Image<float> pyrLayer0;
     // Halide::Image<float> pyrLayer1;
     // Halide::Image<float> pyrLayer2;
     // Halide::Image<float> pyrLayer3;
-    size_t w, h;
-    unsigned char *p;
 
 public:       
 
@@ -50,10 +48,11 @@ public:
         }
         return p[y * w + x];
     }
-    //estimate of contrast based on Welford's algorithm for approximating variance
-    double variance(size_t windowWidth = 1, size_t windowHeight = 1);
+    
     void read(std::string filename);
     void write(std::string filename);
+
+    double variance();
     void makePyramid();
     Image demosaic();
 };
