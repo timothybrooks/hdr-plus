@@ -9,7 +9,7 @@ CUDA_INC += -I$(CUDA_PATH)/include
 
 LDFLAGS += -lHalide -L$(HALIDE_PATH)/bin -lpng
 
-all: main.cpp Burst.cpp Image.cpp RAWImage.cpp
+all: Image.cpp RAWImage.cpp Burst.cpp main.cpp
 	$(CXX) $(CXXFLAGS) Image.cpp RAWImage.cpp Burst.cpp main.cpp $(HALIDE_INC) $(LDFLAGS) -o hdrplus
 
 clean:

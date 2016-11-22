@@ -1,16 +1,15 @@
-#include <stdlib.h>
-#include <string>
-#include <stdexcept>
-
 #ifndef IMAGE_H
 #define IMAGE_H
+
+#include <string>
+#include <stdexcept>
 
 class Image
 {
 
 private:
-    unsigned char *p;
     size_t w, h;
+    unsigned char *p;
     const static size_t c = 3;
 
     void toneMap();

@@ -1,7 +1,8 @@
 #include <cstdlib>
 #include <vector>
 
-#include "Image.h"
+//#include "Image.h"
+//#include "RAWImage.h"
 #include "Burst.h"
 
 int main(int argc, char* argv[]) {

@@ -1,7 +1,4 @@
-#ifndef BURST_INCLUDE
 #include "Burst.h"
-#define BURST_INCLUDE
-#endif
 
 void Burst::align(void) {
     return;

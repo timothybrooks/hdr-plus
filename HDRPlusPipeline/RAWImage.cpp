@@ -1,22 +1,9 @@
-#ifndef RAWIMAGE_INCLUDE
 #include "RAWImage.h"
-#define RAWIMAGE_INCLUDE
-#endif
 
-#ifndef EXCEPTION_INCLUDE
 #include <exception>
-#define EXCEPTION_INCLUDE
-#endif
 
-#ifndef STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
 #include "include/stb_image.h"
-#endif
-
-#ifndef STB_IMAGE_WRITE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "include/stb_image_write.h"
-#endif
 
 double RAWImage::variance(size_t windowWidth, size_t windowHeight) {
     if (windowWidth > this->width() || windowHeight > this->height()) {
@@ -54,28 +41,28 @@ void RAWImage::read(std::string filename) {
 
 void RAWImage::write(std::string filename) {
     if(!stbi_write_png(filename.c_str(), w, h, c, p, w*c)) {
-        throw std::runtime_error("STBI Error: " + (std::string)(stbi_failure_reason()) + ". Cannot write file '" + filename + "'");
+        throw std::runtime_error("STBI Error. Cannot write file '" + filename + "'");
     }
 }
 
 void RAWImage::makePyramid() {
-    Halide::Var x, y;
-    Halide::Func original;
-    original(x,y) = 0.f;
-    size_t width = this->width();
-    size_t height = this->height();
-    for (int row = 0; row < height; row++) {
-        for (int col = 0; col < width; col++) {
-            original(col,row) = this->pixel(col,row);
-        }
-    }
-    //Downsampled bayer to greyscale
-    Halide::Func layer0;
-    layer0(x,y) = (original(x/2,y/2) + original(x/2 + 1, y/2) + original(x/2, y/2 + 1) + original(x/2 + 1, y/2 + 1)) / 4.f;
-    this->pyrLayer0 = layer0.realize(this->width()/2, this->height()/2);
-    this->pyrLayer1(x,y) = (pyrLayer0(x/2,y/2) + pyrLayer0(x/2 + 1, y/2) + pyrLayer0(x/2, y/2 + 1) + pyrLayer0(x/2 + 1, y/2 + 1)) / 4.f;
-    this->pyrLayer2(x,y) = (pyrLayer1(x/2,y/2) + pyrLayer1(x/2 + 1, y/2) + pyrLayer1(x/2, y/2 + 1) + pyrLayer1(x/2 + 1, y/2 + 1)) / 4.f;
-    this->pyrLayer3(x,y) = (pyrLayer2(x/2,y/2) + pyrLayer2(x/2 + 1, y/2) + pyrLayer2(x/2, y/2 + 1) + pyrLayer2(x/2 + 1, y/2 + 1)) / 4.f;
+    // Halide::Var x, y;
+    // Halide::Func original;
+    // original(x,y) = 0.f;
+    // size_t width = this->width();
+    // size_t height = this->height();
+    // for (size_t row = 0; row < height; row++) {
+    //     for (size_t col = 0; col < width; col++) {
+    //         original((int)(col),(int)(row)) = this->pixel(col,row);
+    //     }
+    // }
+    // //Downsampled bayer to greyscale
+    // Halide::Func layer0;
+    // layer0(x,y) = (original(x/2,y/2) + original(x/2 + 1, y/2) + original(x/2, y/2 + 1) + original(x/2 + 1, y/2 + 1)) / 4.f;
+    // this->pyrLayer0 = layer0.realize(this->width()/2, this->height()/2);
+    // this->pyrLayer1(x,y) = (pyrLayer0(x/2,y/2) + pyrLayer0(x/2 + 1, y/2) + pyrLayer0(x/2, y/2 + 1) + pyrLayer0(x/2 + 1, y/2 + 1)) / 4.f;
+    // this->pyrLayer2(x,y) = (pyrLayer1(x/2,y/2) + pyrLayer1(x/2 + 1, y/2) + pyrLayer1(x/2, y/2 + 1) + pyrLayer1(x/2 + 1, y/2 + 1)) / 4.f;
+    // this->pyrLayer3(x,y) = (pyrLayer2(x/2,y/2) + pyrLayer2(x/2 + 1, y/2) + pyrLayer2(x/2, y/2 + 1) + pyrLayer2(x/2 + 1, y/2 + 1)) / 4.f;
 }
 
 Image RAWImage::demosaic() {

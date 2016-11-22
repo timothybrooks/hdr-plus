@@ -1,25 +1,13 @@
+#ifndef BURST_H
+#define BURST_H
+
 #include <iostream>
 #include <vector>
 #include <exception>
 
-#ifndef HALIDE_INCLUDE
-#include "Halide.h"
-#define HALIDE_INCLUDE
-#endif
-
-#ifndef RAWIMAGE_INCLUDE
 #include "RAWImage.h"
-#define RAWIMAGE_INCLUDE
-#endif
-
-#ifndef IMAGE_INCLUDE
-#include "Image.h"
-#define IMAGE_INCLUDE
-#endif
 
 #define MAX_BURST_LENGTH 10
-
-using namespace Halide;
 
 /*
  * Burst -- 
@@ -61,3 +49,5 @@ class Burst {
 
 
 };
+
+#endif

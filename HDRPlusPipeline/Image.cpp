@@ -1,15 +1,11 @@
 #include "Image.h"
 #include <exception>
 
-#ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
-#include "./include/stb_image.h"
-#endif
+#include "include/stb_image.h"
 
-#ifndef STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "./include/stb_image_write.h"
-#endif
+#include "include/stb_image_write.h"
 
 void Image::read(std::string filename) {
     int _w, _h, _num_input_channels; // We do not care about the number of input channels
@@ -24,7 +20,7 @@ void Image::read(std::string filename) {
 
 void Image::write(std::string filename) {
     if(!stbi_write_png(filename.c_str(), w, h, c, p, w*c)) {
-        throw std::runtime_error("STBI Error: " + (std::string)(stbi_failure_reason()) + ". Cannot write file '" + filename + "'");
+        throw std::runtime_error("STBI Error. Cannot write file '" + filename + "'");
     }
 }
 
