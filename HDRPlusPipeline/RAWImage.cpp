@@ -44,23 +44,60 @@ void RAWImage::write(std::string filename) {
 }
 
 void RAWImage::makePyramid() {
-    // Halide::Var x, y;
-    // Halide::Func original;
-    // original(x,y) = 0.f;
-    // size_t width = this->width();
-    // size_t height = this->height();
-    // for (size_t row = 0; row < height; row++) {
-    //     for (size_t col = 0; col < width; col++) {
-    //         original((int)(col),(int)(row)) = this->pixel(col,row);
-    //     }
-    // }
-    // //Downsampled bayer to greyscale
-    // Halide::Func layer0;
-    // layer0(x,y) = (original(x/2,y/2) + original(x/2 + 1, y/2) + original(x/2, y/2 + 1) + original(x/2 + 1, y/2 + 1)) / 4.f;
-    // this->pyrLayer0 = layer0.realize(this->width()/2, this->height()/2);
-    // this->pyrLayer1(x,y) = (pyrLayer0(x/2,y/2) + pyrLayer0(x/2 + 1, y/2) + pyrLayer0(x/2, y/2 + 1) + pyrLayer0(x/2 + 1, y/2 + 1)) / 4.f;
-    // this->pyrLayer2(x,y) = (pyrLayer1(x/2,y/2) + pyrLayer1(x/2 + 1, y/2) + pyrLayer1(x/2, y/2 + 1) + pyrLayer1(x/2 + 1, y/2 + 1)) / 4.f;
-    // this->pyrLayer3(x,y) = (pyrLayer2(x/2,y/2) + pyrLayer2(x/2 + 1, y/2) + pyrLayer2(x/2, y/2 + 1) + pyrLayer2(x/2 + 1, y/2 + 1)) / 4.f;
+
+    int width = this->width();
+    int height = this->height();
+
+    Halide::Var x, y;
+    Halide::Func origin;
+    origin(x,y) = 0.f;
+    for (int row = 0; row < height; row++) {
+        for (int col = 0; col < width; col++) {
+            origin(col,row) = this->pixel(col,row);
+        }
+    }
+
+    int stride0 = 2;
+    int stride1 = 2;
+    int stride2 = 4;
+    int stride3 = 4;
+
+    int layer0Width = this->width()/stride0;
+    int layer0Height = this->height()/stride0;
+    int layer1Width = layer0Width/stride1;
+    int layer1Height = layer0Height/stride1;
+    int layer2Width = layer1Width/stride2;
+    int layer2Height = layer1Height/stride2;
+    int layer3Width = layer2Width/stride3;
+    int layer3Height = layer2Height/stride3;
+
+    if (layer3Width == 0 || layer3Height == 0) {
+        throw std::runtime_error("Input images too small for pyramid creation.");
+    }
+
+    Halide::Func layer0;
+    Halide::Func layer1;
+    Halide::Func layer2;
+    Halide::Func layer3;
+    layer0(x,y) = 0.f;
+    layer1(x,y) = 0.f;
+    layer2(x,y) = 0.f;
+    layer3(x,y) = 0.f;
+
+
+    Halide::RDom r0(0, stride0, 0, stride0);
+    layer0(x,y) += origin(x * stride0 + r0.x, y * stride0 + r0.y);
+    Halide::RDom r1(0,stride1,0,stride1);
+    layer1(x,y) += layer0(x * stride1 + r1.x, y * stride1 + r1.y);
+    Halide::RDom r2(0,stride2,0,stride2);
+    layer2(x,y) += layer1(x * stride2 + r2.x, y * stride2 + r2.y);    
+    Halide::RDom r3(0,stride3,0,stride3);
+    layer3(x,y) += layer2(x * stride3 + r3.x, y * stride3 + r3.y);
+
+    this->pyrLayer0 = layer0.realize(layer0Width, layer0Height);
+    this->pyrLayer1 = layer1.realize(layer1Width, layer1Height);
+    this->pyrLayer2 = layer2.realize(layer2Width, layer2Height);
+    this->pyrLayer3 = layer3.realize(layer3Width, layer3Height);
 }
 
 Image RAWImage::demosaic() {

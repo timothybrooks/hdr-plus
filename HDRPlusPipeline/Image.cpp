@@ -6,6 +6,7 @@
 #include "include/stb_image.h"
 #include "include/stb_image_write.h"
 
+
 void Image::read(std::string filename) {
     int _w, _h, _num_input_channels; // We do not care about the number of input channels
 
