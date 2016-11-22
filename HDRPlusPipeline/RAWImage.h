@@ -6,7 +6,7 @@
 
 #include "Image.h"
 
-//#include "Halide.h"
+#include "Halide.h"
 
 #define VAR_WINDOW_RATIO
 
@@ -15,10 +15,10 @@ class RAWImage
 
 private:
     const static size_t c = 1;
-    // Halide::Image<float> pyrLayer0;
-    // Halide::Image<float> pyrLayer1;
-    // Halide::Image<float> pyrLayer2;
-    // Halide::Image<float> pyrLayer3;
+    Halide::Image<float> pyrLayer0;
+    Halide::Image<float> pyrLayer1;
+    Halide::Image<float> pyrLayer2;
+    Halide::Image<float> pyrLayer3;
     size_t w, h;
     unsigned char *p;
 
@@ -46,7 +46,7 @@ public:
 
     inline unsigned char pixel(size_t x, size_t y) {
         if (x < 0 || x >= w || y < 0 || y >= h) {
-            throw std::out_of_range("Tried accessing a pixel out of the image boundaries");
+            throw std::out_of_range("Tried accessing a RAWImage pixel out of the image boundaries");
         }
         return p[y * w + x];
     }

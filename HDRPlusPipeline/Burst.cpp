@@ -1,7 +1,7 @@
 #include "Burst.h"
 
 void Burst::align(void) {
-    return;
+    return; //TODO Make pyramid and align
 }
 
 Burst::Burst(std::string name, std::vector<std::string> imFileNames) : name(name), burstLength(imFileNames.size()) {
