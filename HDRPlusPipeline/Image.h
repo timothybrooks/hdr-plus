@@ -37,10 +37,6 @@ public:
         return h;
     }
 
-    inline unsigned char* pixels() {
-        return p;
-    }
-
     inline unsigned char pixel(size_t x, size_t y, size_t z) {
         if (x < 0 || x >= w || y < 0 || y >= h || z < 0 || z >= c) {
             throw std::out_of_range("Tried accessing a pixel out of the image boundaries");

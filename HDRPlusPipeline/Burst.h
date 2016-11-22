@@ -2,9 +2,20 @@
 #include <vector>
 #include <exception>
 
+#ifndef HALIDE_INCLUDE
 #include "Halide.h"
+#define HALIDE_INCLUDE
+#endif
+
+#ifndef RAWIMAGE_INCLUDE
 #include "RAWImage.h"
+#define RAWIMAGE_INCLUDE
+#endif
+
+#ifndef IMAGE_INCLUDE
 #include "Image.h"
+#define IMAGE_INCLUDE
+#endif
 
 #define MAX_BURST_LENGTH 10
 
@@ -23,24 +34,22 @@ class Burst {
     private:
         std::string name;
         size_t burstLength;
-        size_t width;
-        size_t height;
+        size_t w;
+        size_t h;
         RAWImage* reference;
         std::vector<RAWImage*> alternates;
 
-        void align(void) {
-            return;
-        }
+        void align(void);
 
     public:
         //Constructor
         Burst(std::string name, std::vector<std::string> imFileNames);
 
-        inline size_t width(void) {return width;}
-        inline size_t height(void) {return height;}
+        inline size_t width(void) {return w;}
+        inline size_t height(void) {return h;}
 
         //Compute the merged raw image by aligning patches of the alternates with the reference frame.
-        RawImage merge(void);
+        RAWImage merge(void);
 
         //Destructor
         virtual ~Burst() {
