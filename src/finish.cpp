@@ -2,7 +2,7 @@
 
 using namespace Halide;
 
-Image finish(Image input) {
+Image<uint8_t> finish(Image<uint8_t> input) {
 
     // TODO: implement (or use implementations) of sum of the following steps
 
