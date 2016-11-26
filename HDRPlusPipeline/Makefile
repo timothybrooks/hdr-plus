@@ -9,8 +9,8 @@ CUDA_INC += -I$(CUDA_PATH)/include
 
 LDFLAGS += -lHalide -L$(HALIDE_PATH)/bin -lpng
 
-all: Image.cpp RAWImage.cpp Burst.cpp main.cpp
-	$(CXX) $(CXXFLAGS) Image.cpp RAWImage.cpp Burst.cpp main.cpp $(HALIDE_INC) $(LDFLAGS) -o hdrplus
+all:
+	$(CXX) $(CXXFLAGS) HDRPlus.cpp align.cpp merge.cpp finish.cpp $(HALIDE_INC) $(LDFLAGS) -o hdrplus
 
 clean:
 	rm -rf hdrplus
