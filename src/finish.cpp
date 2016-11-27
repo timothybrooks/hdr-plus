@@ -30,8 +30,8 @@ Image<uint8_t> finish(Image<uint16_t> input) {
 
     output.realize(output_img);
 
-    // for (int y = 0; y < input.extent(0); y++) {
-    //     for (int x = 0; x < input.extent(1); x++) {
+    // for (int x = 0; x < input.extent(0); x++) {
+    //     for (int y = 0; y < input.extent(1); y++) {
     //         std::cout << (int)output_img(x, y) << std::endl;
     //     }
     // }

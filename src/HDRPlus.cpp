@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     // TODO: get from commend line arguments
     std::vector<std::string> img_names = {"example.CR2", "example.CR2"};
     std::string img_dir = "../images";
-    std::string output_name = "output4.png";
+    std::string output_name = "output.png";
 
     Image<uint16_t> imgs(HDRPlus::width, HDRPlus::height, img_names.size());
 
@@ -121,9 +121,11 @@ int main(int argc, char* argv[]) {
 
     Image<uint8_t> output = hdr_plus.process();
 
-    // for (int y = 0; y < imgs.extent(0); y++) {
-    //     for (int x = 0; x < imgs.extent(1); x++) {
-    //         std::cout << (int)output(x, y) << std::endl;
+    // for (int x = 0; x < output.extent(0); x++) {
+    //     for (int y = 0; y < output.extent(1); y++) {
+    //         for (int c = 0; c < output.extent(2); c++) {
+    //             std::cout<< output(x, y, c) std::endl;
+    //         }
     //     }
     // }
     

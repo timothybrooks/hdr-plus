@@ -18,8 +18,8 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     output.realize(output_img);
 
-    // for (int y = 0; y < imgs.extent(0); y++) {
-    //     for (int x = 0; x < imgs.extent(1); x++) {
+    // for (int x = 0; x < imgs.extent(0); x++) {
+    //     for (int y = 0; y < imgs.extent(1); y++) {
     //         std::cout << (int)output_img(x, y) << std::endl;
     //     }
     // }
