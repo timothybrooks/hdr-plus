@@ -6,6 +6,6 @@
 // I wonder if it would be appropriate to make these images 'const' because they should not be modified...
 // same idea applies to the merge and finish components
 
-Halide::Func align(Halide::Image<uint8_t> imgs);
+Halide::Func align(Halide::Image<uint16_t> imgs);
 
 #endif

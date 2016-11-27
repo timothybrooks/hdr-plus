@@ -3,6 +3,6 @@
 
 #include "Halide.h"
 
-Halide::Image<uint8_t> merge(Halide::Image<uint8_t> imgs, Halide::Func alignment);
+Halide::Image<uint16_t> merge(Halide::Image<uint16_t> imgs, Halide::Func alignment);
 
 #endif

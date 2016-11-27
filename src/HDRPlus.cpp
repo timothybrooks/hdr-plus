@@ -1,5 +1,6 @@
 #include "Halide.h"
 #include "halide_image_io.h"
+#include "halide_load_raw.h"
 #include "align.h"
 #include "merge.h"
 #include "finish.h"
@@ -18,17 +19,15 @@ class HDRPlus {
 
     private:
 
-        const Image<uint8_t> imgs;
+        const Image<uint16_t> imgs;
 
     public:
 
-        static const int width = 1920;
-        static const int height = 1080;
+        static const int width = 5796;
+        static const int height = 3870;
 
         // The reference image will always be the first image
-        // Should we be using uint_8?
-        // If our raw images are stored with more bits, maybe use uint16
-        HDRPlus(Image<uint8_t> imgs) : imgs(imgs) {
+        HDRPlus(Image<uint16_t> imgs) : imgs(imgs) {
 
             assert(imgs.dimensions() == 3);        // width * height * img_idx
             assert(imgs.extent(0) == width);
@@ -41,13 +40,13 @@ class HDRPlus {
             // These three steps of the pipeline will be defined in the other cpp files for our own organization.
             // In the future we can decide if it is better to include them in this class
             Func alignment = align(imgs);
-            Image<uint8_t> output = merge(imgs, alignment);
+            Image<uint16_t> output = merge(imgs, alignment);
             return finish(output);
         }
 
 };
 
-bool load_grayscale_imgs(std::vector<std::string> &img_names, std::string img_dir, Image<uint8_t> &imgs) {
+bool load_raw_imgs(std::vector<std::string> &img_names, std::string img_dir, Image<uint16_t> &imgs) {
 
     assert(imgs.dimensions() == 3);
 
@@ -60,10 +59,9 @@ bool load_grayscale_imgs(std::vector<std::string> &img_names, std::string img_di
         std::string img_path = img_dir + "/" + img_names[n];
 
         Image<uint8_t> img;
-        if (!Tools::load((const std::string)img_path, &img)) {
-            return false;
-        }
-
+        
+        if(!Tools::load_raw(img_path, &img)) return false;
+        
         assert(img.dimensions() == 2);
         assert(img.extent(0) == width);
         assert(img.extent(1) == height);
@@ -77,7 +75,8 @@ bool load_grayscale_imgs(std::vector<std::string> &img_names, std::string img_di
     return true;
 }
 
-int find_reference(Halide::Image<uint8_t> &imgs, int min_idx = 0, int max_idx = 3) {
+int find_reference(Halide::Image<uint16_t> &imgs, int min_idx = 0, int max_idx = 3) {
+
     assert(imgs.dimensions() == 3);
 
     Func variance("variance");
@@ -105,15 +104,13 @@ int find_reference(Halide::Image<uint8_t> &imgs, int min_idx = 0, int max_idx = 
 int main(int argc, char* argv[]) {
     
     // TODO: get from commend line arguments
-    std::vector<std::string> img_names = {"input-1.png", "input-2.png"};
+    std::vector<std::string> img_names = {"example.CR2", "example.CR2"};
     std::string img_dir = "../images";
-    std::string output_name = "output.png";
+    std::string output_name = "output4.png";
 
-    Image<uint8_t> imgs(HDRPlus::width, HDRPlus::height, img_names.size());
+    Image<uint16_t> imgs(HDRPlus::width, HDRPlus::height, img_names.size());
 
-    if(!load_grayscale_imgs(img_names, img_dir, imgs)) {
-        return -1;
-    }
+    if(!load_raw_imgs(img_names, img_dir, imgs)) return -1;
 
     // TODO: find reference, reorder so reference is first image
     // This is not super important to figure out, since it is easy
@@ -121,11 +118,16 @@ int main(int argc, char* argv[]) {
     //int ref_idx = find_reference(imgs);
 
     HDRPlus hdr_plus = HDRPlus(imgs);
+
     Image<uint8_t> output = hdr_plus.process();
+
+    // for (int y = 0; y < imgs.extent(0); y++) {
+    //     for (int x = 0; x < imgs.extent(1); x++) {
+    //         std::cout << (int)output(x, y) << std::endl;
+    //     }
+    // }
     
-    if(!Tools::save(output, img_dir + "/" + output_name)) {
-        return -1;
-    }
+    if(!Tools::save(output, img_dir + "/" + output_name)) return -1;
 
     return 0;
 }

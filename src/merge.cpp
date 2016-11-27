@@ -5,16 +5,26 @@
 
 using namespace Halide;
 
-Image<uint8_t> merge(Image<uint8_t> imgs, Func alignment) {
+Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
-	// TODO: figure out what we need to do lol
-	// Weiner filtering or something like that...
+    // TODO: figure out what we need to do lol
+    // Weiner filtering or something like that...
 
-	Var x, y;
-	Image<uint8_t> output(imgs.extent(0), imgs.extent(1));
-	output(x, y) = imgs(x, y, 0); // for now, just set output to reference image
+    Func output;
+    Var x, y;
+    output(x, y) = imgs(x, y, 0);
 
-	return output;
+    Image<uint16_t> output_img(imgs.extent(0), imgs.extent(1));
+
+    output.realize(output_img);
+
+    // for (int y = 0; y < imgs.extent(0); y++) {
+    //     for (int x = 0; x < imgs.extent(1); x++) {
+    //         std::cout << (int)output_img(x, y) << std::endl;
+    //     }
+    // }
+
+    return output_img;
 }
 
 #endif

@@ -66,7 +66,7 @@ Func gauss_down4(Func input) {
     return output;
 }
 
-Func align(Image<uint8_t> imgs) {
+Func align(Image<uint16_t> imgs) {
     Func layer_0 = box_down2(Func(imgs));
     Func layer_1 = gauss_down2(layer_0);
     Func layer_2 = gauss_down4(layer_1);

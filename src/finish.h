@@ -3,6 +3,6 @@
 
 #include "Halide.h"
 
-Halide::Image<uint8_t> finish(Halide::Image<uint8_t> input);
+Halide::Image<uint8_t> finish(Halide::Image<uint16_t> input);
 
 #endif
