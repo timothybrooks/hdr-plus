@@ -5,6 +5,8 @@
 #include "merge.h"
 #include "finish.h"
 
+#include <cstdio>
+
 // It is ok for me to use the Halide namespace within the c++ file. It just shouldn't be used in a header file!
 using namespace Halide;
 
@@ -130,7 +132,7 @@ int main(int argc, char* argv[]) {
     // }
     
     std::string output_path = img_dir + "/" + output_name;
-    std::remove(output_path)
+    std::remove(output_path.c_str());
     if(!Tools::save(output, output_path)) return -1;
 
     return 0;
