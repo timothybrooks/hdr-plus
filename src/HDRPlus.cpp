@@ -58,7 +58,7 @@ bool load_raw_imgs(std::vector<std::string> &img_names, std::string img_dir, Ima
 
         std::string img_path = img_dir + "/" + img_names[n];
 
-        Image<uint8_t> img;
+        Image<uint16_t> img;
         
         if(!Tools::load_raw(img_path, &img)) return false;
         
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     // TODO: get from commend line arguments
     std::vector<std::string> img_names = {"example.CR2", "example.CR2"};
     std::string img_dir = "../images";
-    std::string output_name = "output.png";
+    std::string output_name = "output_1.png";
 
     Image<uint16_t> imgs(HDRPlus::width, HDRPlus::height, img_names.size());
 
@@ -129,7 +129,9 @@ int main(int argc, char* argv[]) {
     //     }
     // }
     
-    if(!Tools::save(output, img_dir + "/" + output_name)) return -1;
+    std::string output_path = img_dir + "/" + output_name;
+    std::remove(output_path)
+    if(!Tools::save(output, output_path)) return -1;
 
     return 0;
 }

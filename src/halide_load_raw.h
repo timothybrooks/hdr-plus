@@ -107,7 +107,7 @@ bool load_raw(const std::string &filename, Image<uint16_t> *im) {
         return false;
     }
 
-    Image<uint16_t> output(data, width, height);
+    Image<uint16_t> output(data, width, height); 
 
     *im = output;
 
