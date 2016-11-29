@@ -2,7 +2,12 @@
 
 #include "Halide.h"
 
+#define TILE_SIZE 16
+#define SEARCH_RANGE 4
+#define DOWNSAMPLE_FACTOR 4
+
 using namespace Halide;
+
 
 // This file includes the implementation of the function align()
 // The function is declared at the bottom. Many helper functions are declared above it.
@@ -66,14 +71,114 @@ Func gauss_down4(Func input) {
     return output;
 }
 
+//try every offset in SEARCH_RANGE and record the score
+//this version of the function assumes no previous offset.
+//TODO: Avoid computation for layer 0
+Func L2_scores(Func pyramid_layer) {
+    assert(pyramid_layer.dimensions() == 3);
+    Func output(pyramid_layer.name() + "_L2_scores");
+    Var tile_x, tile_y, offset_x, offset_y, n;
+    RDom r(0, TILE_SIZE, 0, TILE_SIZE);
+    Expr component_dist = pyramid_layer(tile_x * TILE_SIZE + r.x, tile_y * TILE_SIZE + r.y, 0) - pyramid_layer(tile_x * TILE_SIZE + r.x - offset_x, tile_y * TILE_SIZE + r.y - offset_y, n);
+    output(tile_x, tile_y, offset_x, offset_y, n) = sum(component_dist * component_dist);
+    return output;
+}
+
+//pyramid layer(x,y,n) -> uint16_t
+//prev_best_offsets(isYOffset,tileX,tileY,n) -> uint16_t
+//this version of the function takes into account the previous offset
+Func L2_scores(Func pyramid_layer, Func prev_best_offsets) {
+    assert(pyramid_layer.dimensions() == 3);
+    assert(prev_best_offsets.dimensions() == 4);
+
+    Func output(pyramid_layer.name() + "_L2_scores");
+    Var tile_x, tile_y, offset_x, offset_y, n;
+    
+    Expr old_tile_x = tile_x / DOWNSAMPLE_FACTOR;
+    Expr old_tile_y = tile_y / DOWNSAMPLE_FACTOR;
+    Expr prev_offset_x = prev_best_offsets(0, old_tile_x, old_tile_y, n) * DOWNSAMPLE_FACTOR;
+    Expr prev_offset_y = prev_best_offsets(1, old_tile_x, old_tile_y, n) * DOWNSAMPLE_FACTOR;
+
+    RDom r(0, TILE_SIZE, 0, TILE_SIZE);
+    //TODO avoid out of bounds here
+    Expr component_dist = pyramid_layer(tile_x * TILE_SIZE + r.x, tile_y * TILE_SIZE + r.y, 0) - pyramid_layer(tile_x * TILE_SIZE + r.x - offset_x - prev_offset_x, tile_y * TILE_SIZE + r.y - offset_y - prev_offset_y , n);
+    output(tile_x, tile_y, offset_x, offset_y, n) = 
+        sum(component_dist * component_dist);
+    return output;
+}
+
+//offset_scores(tile_x, tile_y, offset_x, offset_y, n);
+//best_offsets(is_y_offset, tile_x, tile_y, n)
+Func best_offsets(Func offset_scores) {
+    assert(offset_scores.dimensions() == 5);
+    Func output(offset_scores.name() + "_best_offsets");
+    Func best_scores(offset_scores.name() + "_best_scores");
+
+    Var is_y_offset, tile_x, tile_y, n;
+    output(is_y_offset, tile_x, tile_y, n) = 0;
+
+    //r0: offset_x, offset_y
+    RDom r0(-SEARCH_RANGE, 2 * SEARCH_RANGE + 1, -SEARCH_RANGE, 2 * SEARCH_RANGE + 1);
+    best_scores(tile_x, tile_y, n) = minimum(offset_scores(tile_x, tile_y, r0.x, r0.y, n));
+
+    //r1: offset_x, offset_y
+    RDom r1(-SEARCH_RANGE, 2 * SEARCH_RANGE + 1, -SEARCH_RANGE, 2 * SEARCH_RANGE + 1);
+    output(0, tile_x, tile_y, n) = 
+        select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), r1.x, output(0, tile_x, tile_y, n));
+    output(1, tile_x, tile_y, n) = 
+        select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), r1.y, output(1, tile_x, tile_y, n));
+    return output;
+}
+
+Func best_offsets(Func offset_scores, Func prev_best_offsets) {
+    assert(offset_scores.dimensions() == 5);
+    Func output(offset_scores.name() + "_best_offsets");
+    Func best_scores(offset_scores.name() + "_best_scores");
+    
+    Var is_y_offset, tile_x, tile_y, n;
+    output(is_y_offset, tile_x, tile_y, n) = 0;
+
+    //r0: offset_x, offset_y
+    RDom r0(-SEARCH_RANGE, 2 * SEARCH_RANGE + 1, -SEARCH_RANGE, 2 * SEARCH_RANGE + 1);
+    best_scores(tile_x, tile_y, n) = minimum(offset_scores(tile_x, tile_y, r0.x, r0.y, n));
+
+    Expr old_tile_x = tile_x/DOWNSAMPLE_FACTOR;
+    Expr old_tile_y = tile_y/DOWNSAMPLE_FACTOR;
+    Expr prev_offset_x = prev_best_offsets(0, old_tile_x, old_tile_y, n) * DOWNSAMPLE_FACTOR;
+    Expr prev_offset_y = prev_best_offsets(1, old_tile_x, old_tile_y, n) * DOWNSAMPLE_FACTOR;
+
+    //r1: offset_x, offset_y
+    RDom r1(-SEARCH_RANGE, 2 * SEARCH_RANGE + 1, -SEARCH_RANGE, 2 * SEARCH_RANGE + 1);
+    output(0, tile_x, tile_y, n) = 
+        select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), r1.x + prev_offset_x, output(0, tile_x, tile_y, n));
+    output(1, tile_x, tile_y, n) = 
+        select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), r1.y + prev_offset_y, output(1, tile_x, tile_y, n));
+    return output;
+}
+
 Func align(Image<uint16_t> imgs) {
-    Func layer_0 = box_down2(Func(imgs));
-    Func layer_1 = gauss_down2(layer_0);
+
+    //TODO pad layers to prevent out of bounds for alternates when calculating scores.
+    Func layer_0 = gauss_down4(Func(imgs));
+    Func layer_1 = gauss_down4(layer_0);
     Func layer_2 = gauss_down4(layer_1);
-    Func layer_3 = gauss_down4(layer_2);
 
-    // TODO: implement a lot of stuff for alignment...
+    //offset_scores_n(tile_x, tile_y, marginal_offset_x, marginal_offset_y, n) marginal offsets are relative to inherited offset
+    Func offset_scores_2 = L2_scores(layer_2);
+    Func best_offsets_2 = best_offsets(offset_scores_2);
 
+    Func offset_scores_1 = L2_scores(layer_1, best_offsets_2);
+    Func best_offsets_1 = best_offsets(offset_scores_1, best_offsets_2);
+
+    Func offset_scores_0 = L2_scores(layer_0, best_offsets_1);
+    Func best_offsets_0 = best_offsets(offset_scores_0, best_offsets_1);
+
+    //alignment(isYOffset, tile_x, tile_y, alternate_index)
     Func alignment("alignment");    // will have the dimmensionality: coordinate (0 or 1) * tile_x * tile_y * alternate image index
+    alignment = best_offsets_0;
+
+    //TODO actually schedule
+    alignment.compute_root();
+
     return alignment;
 }
