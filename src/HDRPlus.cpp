@@ -33,8 +33,8 @@ class HDRPlus {
         HDRPlus(Image<uint16_t> imgs) : imgs(imgs) {
 
             assert(imgs.dimensions() == 3);        // width * height * img_idx
-            assert(imgs.extent(0) == width);
-            assert(imgs.extent(1) == height);
+            assert(imgs.width() == width);
+            assert(imgs.height() == height);
             assert(imgs.extent(2) >= 2);            // must have at least one alternate image
         }
 
@@ -53,21 +53,21 @@ bool load_raw_imgs(std::vector<std::string> &img_names, std::string img_dir, Ima
 
     assert(imgs.dimensions() == 3);
 
-    int width = imgs.extent(0);
-    int height = imgs.extent(1);
+    int width = imgs.width();
+    int height = imgs.height();
     int num_imgs = img_names.size();
 
     for (int n = 0; n < num_imgs; n++) {
 
         std::string img_path = img_dir + "/" + img_names[n];
 
-        Image<uint8_t> img;
+        Image<uint16_t> img;
         
         if(!Tools::load_raw(img_path, &img)) return false;
         
         assert(img.dimensions() == 2);
-        assert(img.extent(0) == width);
-        assert(img.extent(1) == height);
+        assert(img.width() == width);
+        assert(img.height() == height);
 
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
     // TODO: get from commend line arguments
     std::vector<std::string> img_names = {"example.CR2", "example.CR2"};
     std::string img_dir = "../images";
-    std::string output_name = "output_2.jpg";
+    std::string output_name = "output.png";
 
     Image<uint16_t> imgs(HDRPlus::width, HDRPlus::height, img_names.size());
 
