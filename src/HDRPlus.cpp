@@ -1,11 +1,12 @@
 #include "Halide.h"
-#include "halide_image_io.h"
 #include "halide_load_raw.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "../include/stb_image_write.h"
+
 #include "align.h"
 #include "merge.h"
 #include "finish.h"
-
-#include <cstdio>
 
 // It is ok for me to use the Halide namespace within the c++ file. It just shouldn't be used in a header file!
 using namespace Halide;
@@ -60,7 +61,7 @@ bool load_raw_imgs(std::vector<std::string> &img_names, std::string img_dir, Ima
 
         std::string img_path = img_dir + "/" + img_names[n];
 
-        Image<uint16_t> img;
+        Image<uint8_t> img;
         
         if(!Tools::load_raw(img_path, &img)) return false;
         
@@ -108,7 +109,7 @@ int main(int argc, char* argv[]) {
     // TODO: get from commend line arguments
     std::vector<std::string> img_names = {"example.CR2", "example.CR2"};
     std::string img_dir = "../images";
-    std::string output_name = "output_1.png";
+    std::string output_name = "output_2.jpg";
 
     Image<uint16_t> imgs(HDRPlus::width, HDRPlus::height, img_names.size());
 
@@ -121,19 +122,14 @@ int main(int argc, char* argv[]) {
 
     HDRPlus hdr_plus = HDRPlus(imgs);
 
+    // This image has an RGB interleaved memory layout
     Image<uint8_t> output = hdr_plus.process();
-
-    // for (int x = 0; x < output.extent(0); x++) {
-    //     for (int y = 0; y < output.extent(1); y++) {
-    //         for (int c = 0; c < output.extent(2); c++) {
-    //             std::cout<< output(x, y, c) std::endl;
-    //         }
-    //     }
-    // }
     
     std::string output_path = img_dir + "/" + output_name;
     std::remove(output_path.c_str());
-    if(!Tools::save(output, output_path)) return -1;
+
+    int stride_in_bytes = output.width() * output.channels();
+    if(!stbi_write_png(output_path.c_str(), output.width(), output.height(), output.channels(), output.data(), stride_in_bytes)) return -1;
 
     return 0;
 }
