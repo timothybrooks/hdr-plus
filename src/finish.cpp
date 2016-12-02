@@ -22,17 +22,22 @@ Image<uint8_t> finish(Image<uint16_t> input) {
     // 12. Hue-specific color adjustments
     // 13. Dithering
 
+    // The output image must have an RGB interleaved memory layout
     Func output;
     Var x, y, c;
-    output(x, y, c) = cast<uint8_t>(input(x, y));
 
-    Image<uint8_t> output_img(input.extent(0), input.extent(1), 3);
+    int brighten_factor = 14;
+    output(c, x, y) = cast<uint8_t>(clamp(brighten_factor * cast<uint32_t>(input(x, y)) / 256, 0, 255));
+
+    Image<uint8_t> output_img(3, input.width(), input.height());
 
     output.realize(output_img);
+    output_img.transpose(0, 1);
+    output_img.transpose(1, 2);
 
-    // for (int x = 0; x < input.extent(0); x++) {
-    //     for (int y = 0; y < input.extent(1); y++) {
-    //         std::cout << (int)output_img(x, y) << std::endl;
+    // for (int x = 0; x < output_img.width(); x++) {
+    //     for (int y = 0; y < output_img.height(); y++) {
+    //         std::cout << "val: " << (int)output_img(x, y, 0) << std::endl;
     //     }
     // }
 
