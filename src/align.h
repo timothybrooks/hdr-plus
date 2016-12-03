@@ -1,6 +1,10 @@
 #ifndef HDRPLUS_ALIGN_H_
 #define HDRPLUS_ALIGN_H_
 
+#define TILE_SIZE 16
+#define SEARCH_RANGE 4
+#define DOWNSAMPLE_FACTOR 4
+
 #include "Halide.h"
 
 // I wonder if it would be appropriate to make these images 'const' because they should not be modified...

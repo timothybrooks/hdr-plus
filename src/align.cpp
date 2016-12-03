@@ -1,10 +1,6 @@
 #include <string>
-
+#include "align.h"
 #include "Halide.h"
-
-#define TILE_SIZE 16
-#define SEARCH_RANGE 4
-#define DOWNSAMPLE_FACTOR 4
 
 using namespace Halide;
 
@@ -198,27 +194,37 @@ Func align(Image<uint16_t> imgs) {
     
     Func alignment("alignment");
     alignment(isYOffset, tile_x, tile_y, n) = best_offsets(offset_scores_0)(isYOffset, tile_x, tile_y, n);
-
+    //alignment(isYOffset, tile_x, tile_y, n) = cast<uint16_t>(0);
+    
     //alignment schedule
     alignment.vectorize(tile_x,8);
     alignment.parallel(tile_y);
     alignment.compute_root();
     
-    //TODO remove debug image
-    Image<uint16_t> test_img(2, 
-                             imgs.extent(0) / DOWNSAMPLE_FACTOR / TILE_SIZE * 2 -1, 
-                             imgs.extent(1) / DOWNSAMPLE_FACTOR / TILE_SIZE * 2 -1, 
-                             imgs.extent(2) - 1);
-    alignment.realize(test_img);
+    //TODO REMOVE NULL HYPOTHESIS CHECK
+    // Func maxOffset("null_hypothesis_check");
+    // Var foo;
+    // RDom r(0, 2, 0, imgs.extent(0) / DOWNSAMPLE_FACTOR / TILE_SIZE * 2 -1, 0, imgs.extent(1) / DOWNSAMPLE_FACTOR / TILE_SIZE * 2 -1, 0, imgs.extent(2) - 1);
+    // maxOffset(foo) = maximum(alignment(r.x,r.y,r.x,r.w));
+    // Image <uint16_t> test_img(1);
+    // maxOffset.realize(test_img);
+    // assert(test_img.data()[0] == 0);
 
-    /*
-    for (int tile_y = 0; tile_y < 5796 /DOWNSAMPLE_FACTOR /TILE_SIZE * 2 - 1; ++tile_y) {
-        for (int tile_x = 0; tile_x < 3870 / DOWNSAMPLE_FACTOR / TILE_SIZE * 2 -1; ++tile_x) {
-            for (int isYOffset = 0; isYOffset < 2; isYOffset++) {
-                assert(test_img.data()[tile_y + tile_x + isYOffset] == 0);
-            }
-        }
+    //TODO REMOVE ALIGNMENT PRINTING
+    Image <uint16_t> alignment_image(2, imgs.extent(0) / DOWNSAMPLE_FACTOR / TILE_SIZE * 2 - 1, imgs.extent(1) / DOWNSAMPLE_FACTOR/ TILE_SIZE * 2 - 1, imgs.extent(2) - 1);
+    alignment.realize(alignment_image);
+    std::cout << std::endl;
+    std::cout << std::endl;
+    std::cout << std::endl;
+    for (int i = 0; i < 50000; i++) {
+        std::cout << "alignment[" << i << "]:" << alignment_image.data()[i] << std::endl;
+        assert(alignment_image.data()[i] == 0);
     }
-    */
+    std::cout << std::endl;
+    std::cout << std::endl;
+    std::cout << std::endl;
+    std::cout << std::endl;
+    exit(1);
+    
     return alignment;
 }
