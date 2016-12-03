@@ -26,16 +26,18 @@ class HDRPlus {
 
     public:
 
-        static const int width = 5796;
-        static const int height = 3870;
-        static const BlackPoint bp = 2050;
+        // dimensions of pixel phone output images are 3036 x 4048
+        // rounded down so both dimensions are a multiple of 8
+        static const int width = 4000;
+        static const int height = 3000;
 
+        const BlackPoint bp;
         const WhiteBalance wb;
 
         // The reference image will always be the first image
-        HDRPlus(Image<uint16_t> imgs, WhiteBalance wb) : imgs(imgs), wb(wb) {
+        HDRPlus(Image<uint16_t> imgs, BlackPoint bp, WhiteBalance wb) : imgs(imgs), bp(bp), wb(wb) {
 
-            assert(imgs.dimensions() == 3);        // width * height * img_idx
+            assert(imgs.dimensions() == 3);         // width * height * img_idx
             assert(imgs.width() == width);
             assert(imgs.height() == height);
             assert(imgs.extent(2) >= 2);            // must have at least one alternate image
@@ -48,95 +50,135 @@ class HDRPlus {
             Func alignment;// = align(imgs);
             Image<uint16_t> output = merge(imgs, alignment);
 
-            return finish(output, HDRPlus::bp, wb);
+            return finish(output, bp, wb);
         }
 
-};
+        static bool load_raws(std::string dir_path, std::vector<std::string> &img_names, Image<uint16_t> &imgs) {
 
-bool load_raw_imgs(std::vector<std::string> &img_names, std::string img_dir, Image<uint16_t> &imgs) {
+            int num_imgs = img_names.size();
 
-    assert(imgs.dimensions() == 3);
+            imgs = Image<uint16_t>(width, height, num_imgs);
 
-    int width = imgs.width();
-    int height = imgs.height();
-    int num_imgs = img_names.size();
+            for (int n = 0; n < num_imgs; n++) {
 
-    for (int n = 0; n < num_imgs; n++) {
+                std::string img_name = img_names[n];
+                std::string img_path = dir_path + "/" + img_name;
 
-        std::string img_path = img_dir + "/" + img_names[n];
+                Image<uint16_t> img;
 
-        Image<uint16_t> img;
-        
-        if(!Tools::load_raw(img_path, &img)) return false;
-        
-        assert(img.dimensions() == 2);
-        assert(img.width() == width);
-        assert(img.height() == height);
+                if(!Tools::load_raw(img_path, &img)) {
+                    std::cerr << "Input image failed to load" << std::endl;
+                    return false;
+                }
 
-        for (int x = 0; x < width; x++) {
-            for (int y = 0; y < height; y++) {
-                imgs(x, y, n) = img(x, y);
+                int img_width  = img.width();
+                int img_height = img.height();
+                
+                if (img.dimensions() != 2) {
+                    std::cerr << "Input image '" << img_name << "' has " << img.dimensions() << " dimensions, but must have exactly 2" << std::endl;
+                    return false;
+                }
+                if (img_width < width) {
+                    std::cerr << "Input image '" << img_name << "' has width " << img_width << ", but must must have width >= " << width << std::endl;
+                    return false;
+                }
+                if (img_height < height) {
+                    std::cerr << "Input image '" << img_name << "' has height " << img_height << ", but must have height >= " << height << std::endl;
+                    return false;
+                }
+
+                // offsets must be multiple of two to keep bayer pattern
+                int x_offset = ((img_width  - width ) / 4) * 2;
+                int y_offset = ((img_height - height) / 4) * 2; 
+
+                for (int y = 0; y < height; y++) {
+                    for (int x = 0; x < width; x++) {
+
+                        imgs(x, y, n) = img(x_offset + x, y_offset + y);
+                    }
+                }
             }
+            return true;
         }
-    }
-    return true;
-}
 
-int find_reference(Halide::Image<uint16_t> &imgs, int min_idx = 0, int max_idx = 3) {
+        static bool save_png(std::string dir_path, std::string img_name, Image<uint8_t> &img) {
 
-    assert(imgs.dimensions() == 3);
+            std::string img_path = dir_path + "/" + img_name;
 
-    Func variance("variance");
-    Var n;
-    variance(n) = 0; // TODO: compute variance within some smaller region of image n
+            std::remove(img_path.c_str());
 
-    double max_variance = 0;
-    int ref_idx = 0;
+            int stride_in_bytes = img.width() * img.channels();
+            if(!stbi_write_png(img_path.c_str(), img.width(), img.height(), img.channels(), img.data(), stride_in_bytes)) {
+                std::cerr << "Unable to write output image '" << img_name << "'" << std::endl;
+                return false;
+            }
 
-    Image<double> variance_r = variance.realize(imgs.extent(0));
-
-    for (int idx = min_idx; idx < max_idx; idx++) {
-
-        double curr_variance = variance_r(idx);
-        if (curr_variance > max_variance) {
-
-            max_variance = curr_variance;
-            ref_idx = idx;
+            return true;
         }
-    }
 
-    return ref_idx;
-}
+        static int find_ref(Halide::Image<uint16_t> &imgs, int min_idx = 0, int max_idx = 3) {
+
+            assert(imgs.dimensions() == 3);
+
+            Func variance("variance");
+            Var n;
+            variance(n) = 0; // TODO: compute variance within some smaller region of image n
+
+            double max_variance = 0;
+            int ref_idx = 0;
+
+            Image<double> variance_r = variance.realize(imgs.extent(0));
+
+            for (int idx = min_idx; idx < max_idx; idx++) {
+
+                double curr_variance = variance_r(idx);
+                if (curr_variance > max_variance) {
+
+                    max_variance = curr_variance;
+                    ref_idx = idx;
+                }
+            }
+
+            return ref_idx;
+        }
+};
 
 int main(int argc, char* argv[]) {
     
-    // TODO: get from commend line arguments
-    std::vector<std::string> img_names = {"example.CR2", "example.CR2"};
-    std::string img_dir = "../images";
-    std::string output_name = "example_output.png";
+    // TODO: validate input arguments
+    
+    if (argc < 5) {
+        std::cerr << "Usage: " << argv[0] << " dir_path out_img raw_img1 raw_img2 [...]" << std::endl;
+        return 1;
+    }
 
-    Image<uint16_t> imgs(HDRPlus::width, HDRPlus::height, img_names.size());
+    int i = 1;
+    std::string dir_path = argv[i++];
+    std::string out_name = argv[i++];
 
-    if(!load_raw_imgs(img_names, img_dir, imgs)) return -1;
+    std::vector<std::string> in_names;
+
+    while (i < argc) in_names.push_back(argv[i++]);
+
+    Image<uint16_t> imgs;
+
+    if(!HDRPlus::load_raws(dir_path, in_names, imgs)) return -1;
 
     // TODO: find reference, reorder so reference is first image
     // This is not super important to figure out, since it is easy
     // and for now we just use the first image
-    //int ref_idx = find_reference(imgs);
+    //int ref_idx = HDRPlus::find_ref(imgs);
 
     // TODO: read these values from the reference image header (possibly using dcraw)
-    WhiteBalance wb = {2.09863, 1, 1, 1.50391};   // r, g0, g1, b
+    const WhiteBalance wb = {2.09863, 1, 1, 1.50391};   // r, g0, g1, b
+    const BlackPoint bp = 2050;
 
-    HDRPlus hdr_plus = HDRPlus(imgs, wb);
+    HDRPlus hdr_plus = HDRPlus(imgs, bp, wb);
 
     // This image has an RGB interleaved memory layout
     Image<uint8_t> output = hdr_plus.process();
     
-    std::string output_path = img_dir + "/" + output_name;
-    std::remove(output_path.c_str());
-
-    int stride_in_bytes = output.width() * output.channels();
-    if(!stbi_write_png(output_path.c_str(), output.width(), output.height(), output.channels(), output.data(), stride_in_bytes)) return -1;
+    if(!HDRPlus::save_png(dir_path, out_name, output)) return -1;
 
     return 0;
 }
