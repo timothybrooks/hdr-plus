@@ -3,7 +3,7 @@
 #include "Halide.h"
 
 #define TILE_SIZE 16
-#define SEARCH_RANGE 1
+#define SEARCH_RANGE 4
 #define DOWNSAMPLE_FACTOR 4
 
 using namespace Halide;
@@ -55,7 +55,7 @@ Func gauss_down4(Func input) {
 
     // TODO: compute in two passes
     // we can optimize this later
-    Func k;
+    Func k("gauss_down4_filter");
     k(x,y) = cast<uint16_t>(0);
     k(-2,-2) = cast<uint16_t>(1); k(2,-2) = cast<uint16_t>(1); k(-2, 2) = cast<uint16_t>(1); k(2, 2) = cast<uint16_t>(1);
     k(-1,-2) = cast<uint16_t>(4); k(1,-2) = cast<uint16_t>(4); k(-2,-1) = cast<uint16_t>(4); k(2,-1) = cast<uint16_t>(4); k(-2, 1) = cast<uint16_t>(4); k(2, 1) = cast<uint16_t>(4); k(-1, 2) = cast<uint16_t>(4); k(1, 2) = cast<uint16_t>(4);
@@ -64,11 +64,10 @@ Func gauss_down4(Func input) {
     k(0,-1) = cast<uint16_t>(24); k(-1, 0) = cast<uint16_t>(24); k(1, 0) = cast<uint16_t>(24); k(0, 1) = cast<uint16_t>(24);
     k(0, 0) = cast<uint16_t>(36);
     RDom r(-2, 5, -2, 5);
+    k.vectorize(x,16);
+    k.parallel(y);
+    k.compute_root();
     output(x, y, n) = sum(input(4*x + r.x, 4*y + r.y, n) * k(r.x, r.y)) / cast<uint16_t>(256);
-    
-    // SCHEDULE
-    //output.vectorize(x,8);
-    //output.parallel(n);
     return output;
 }
 
@@ -82,10 +81,6 @@ Func L2_scores(Func pyramid_layer) {
     RDom r(0, TILE_SIZE, 0, TILE_SIZE);
     Expr component_dist = pyramid_layer((tile_x/2) * TILE_SIZE + r.x, (tile_y/2) * TILE_SIZE + r.y, 0) - pyramid_layer((tile_x/2) * TILE_SIZE + r.x - offset_x, (tile_y/2) * TILE_SIZE + r.y - offset_y, n + 1);
     output(tile_x, tile_y, offset_x, offset_y, n) = sum(component_dist * component_dist);
-    
-    //SCHEDULE
-    //output.vectorize(tile_x,8);
-    //output.parallel(n);
     return output;
 }
 
@@ -124,18 +119,15 @@ Func best_offsets(Func offset_scores) {
     output(is_y_offset, tile_x, tile_y, n) = cast<uint16_t>(0);
 
     //r0: offset_x, offset_y
-    RDom r0(-SEARCH_RANGE, 2 * SEARCH_RANGE + 1, -SEARCH_RANGE, 2 * SEARCH_RANGE + 1);
+    RDom r0(-SEARCH_RANGE, 2 * SEARCH_RANGE, -SEARCH_RANGE, 2 * SEARCH_RANGE);
     best_scores(tile_x, tile_y, n) = minimum(offset_scores(tile_x, tile_y, r0.x, r0.y, n));
 
     //r1: offset_x, offset_y
-    RDom r1(-SEARCH_RANGE, 2 * SEARCH_RANGE + 1, -SEARCH_RANGE, 2 * SEARCH_RANGE + 1);
+    RDom r1(-SEARCH_RANGE, 2 * SEARCH_RANGE, -SEARCH_RANGE, 2 * SEARCH_RANGE);
     output(0, tile_x, tile_y, n) = 
         select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), cast<uint16_t>(r1.x), output(0, tile_x, tile_y, n));
     output(1, tile_x, tile_y, n) = 
         select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), cast<uint16_t>(r1.y), output(1, tile_x, tile_y, n));
-    //SCHEDULE
-    //output.vectorize(tile_x);
-    //output.parallel(n);
     return output;
 }
 
@@ -168,12 +160,18 @@ Func best_offsets(Func offset_scores, Func prev_best_offsets) {
 */
 
 Func align(Image<uint16_t> imgs) {
-    Var x,y,n;
+    Var x, y, n, isYOffset, tile, tile_x, tile_y, offset, offset_x, offset_y;
     Func clamped_imgs("clamped_imgs");
     clamped_imgs = BoundaryConditions::mirror_image(imgs);
 
     //TODO pad layers to prevent out of bounds for alternates when calculating scores.
-    Func layer_0 = gauss_down4(clamped_imgs);
+    Func layer_0("layer_0");
+    layer_0(x, y, n) = gauss_down4(clamped_imgs)(x, y, n);
+    
+    layer_0.vectorize(x, 8);
+    layer_0.parallel(y);
+    layer_0.compute_root();
+
     /*
     Func layer_1 = gauss_down4(layer_0);
     Func layer_2 = gauss_down4(layer_1);
@@ -190,11 +188,21 @@ Func align(Image<uint16_t> imgs) {
     Func best_offsets_0 = best_offsets(offset_scores_0, best_offsets_1);
     */
     Func offset_scores_0("offset_scores_0");
-    offset_scores_0 = L2_scores(layer_0);
-    Func alignment("alignment");
-    alignment = best_offsets(offset_scores_0);
+    offset_scores_0(tile_x, tile_y, offset_x, offset_y, n) = L2_scores(layer_0)(tile_x, tile_y, offset_x, offset_y, n);
 
-    //TODO schedule alignment
+    //offset_scores_0 schedule
+    offset_scores_0.vectorize(tile_x, 8);
+    offset_scores_0.fuse(offset_x, offset_y, offset);
+    offset_scores_0.parallel(offset);
+    offset_scores_0.compute_root();
+    
+    Func alignment("alignment");
+    alignment(isYOffset, tile_x, tile_y, n) = best_offsets(offset_scores_0)(isYOffset, tile_x, tile_y, n);
+
+    //alignment schedule
+    alignment.vectorize(tile_x,8);
+    alignment.parallel(tile_y);
+    alignment.compute_root();
     
     //TODO remove debug image
     Image<uint16_t> test_img(2, 
@@ -212,6 +220,5 @@ Func align(Image<uint16_t> imgs) {
         }
     }
     */
-    
     return alignment;
 }
