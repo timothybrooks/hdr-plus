@@ -1,4 +1,5 @@
 #include "Halide.h"
+#include "halide_image_io.h"
 
 using namespace Halide;
 
@@ -27,7 +28,6 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
                                     f0(0,  1) =  2;
                                     f0(0,  2) = -1;
 
-    
     // Filter results must be divided by 2
                                     f1(0, -2) =  1;
                     f1(-1,-1) = -2;                 f1(1, -1) = -2;
@@ -35,7 +35,6 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
                     f1(-1, 1) = -2;                 f1(1,  1) = -2;
                                     f1(0,  2) =  1;
 
-    
     // Filter results must be divided by 2
                                     f2(0, -2) = -2;
                     f2(-1,-1) = -2; f2(0, -1) =  8; f2(1, -1) = -2;
@@ -43,7 +42,6 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
                     f2(-1, 1) = -2; f2(0,  1) =  8; f2(1,  1) = -2;
                                     f2(0,  2) = -2;
 
-    
     // Filter results must be divided by 2
                                     f3(0, -2) = -3;
                     f3(-1,-1) = 4;                  f3(1, -1) = 4;
@@ -62,10 +60,10 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
 
     Func input_mirror = BoundaryConditions::mirror_image(input);
 
-    d0(x, y) = cast<uint16_t>(clamp(sum(cast<uint32_t>(input_mirror(x + r0.x, y + r0.y)) * f0(r0.x, r0.y)), 0, 65535));
-    d1(x, y) = cast<uint16_t>(clamp(sum(cast<uint32_t>(input_mirror(x + r0.x, y + r0.y)) * f1(r0.x, r0.y)) / 2, 0, 65535));
-    d2(x, y) = cast<uint16_t>(clamp(sum(cast<uint32_t>(input_mirror(x + r0.x, y + r0.y)) * f2(r0.x, r0.y)) / 2, 0, 65535));
-    d3(x, y) = cast<uint16_t>(clamp(sum(cast<uint32_t>(input_mirror(x + r0.x, y + r0.y)) * f3(r0.x, r0.y)) / 2, 0, 65535));
+    d0(x, y) = cast<uint16_t>(clamp(sum(cast<int32_t>(input_mirror(x + r0.x, y + r0.y)) * f0(r0.x, r0.y)) / 8,  0, 65535));
+    d1(x, y) = cast<uint16_t>(clamp(sum(cast<int32_t>(input_mirror(x + r0.x, y + r0.y)) * f1(r0.x, r0.y)) / 16, 0, 65535));
+    d2(x, y) = cast<uint16_t>(clamp(sum(cast<int32_t>(input_mirror(x + r0.x, y + r0.y)) * f2(r0.x, r0.y)) / 16, 0, 65535));
+    d3(x, y) = cast<uint16_t>(clamp(sum(cast<int32_t>(input_mirror(x + r0.x, y + r0.y)) * f3(r0.x, r0.y)) / 16, 0, 65535));
 
     Var c;
 
@@ -95,7 +93,7 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
 }
 
 
-Image<uint8_t> finish(Image<uint16_t> input) {
+Image<uint8_t> finish(Image<uint16_t> input2) {
 
     // TODO: implement (or use implementations) of sum of the following steps
     // steps 4 and 7 are necessary
@@ -105,6 +103,14 @@ Image<uint8_t> finish(Image<uint16_t> input) {
     // 3. White balancing
 
     // 4. Demosaicking
+    Image<uint16_t> input3 = Tools::load_image("../images/teapot.png");
+    Image<uint16_t> input(input3.width() - 2, input3.height());
+    for (int y = 0; y < input.height(); y++) {
+        for (int x = 0; x < input.width(); x++) {
+            input(x, y) = input3(x + 1, y, 0);
+        }
+    }
+    std::cout << "HERE" << std::endl;
     Image<uint16_t> demosaic_output = demosaic(input);
 
     // 5. Chroma denoising
@@ -122,8 +128,8 @@ Image<uint8_t> finish(Image<uint16_t> input) {
     Func output;
     Var x, y, c;
 
-    int brighten_factor = 1;
-    output(c, x, y) = cast<uint8_t>(clamp(brighten_factor * cast<uint32_t>(demosaic_output(x, y, c)) / 256, 0, 255));
+    //int brighten_factor = 1;
+    output(c, x, y) = cast<uint8_t>(clamp(cast<uint32_t>(demosaic_output(x, y, c)) / 256, 0, 255));
 
     Image<uint8_t> output_img(3, input.width(), input.height());
 

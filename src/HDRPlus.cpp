@@ -42,9 +42,9 @@ class HDRPlus {
 
             // These three steps of the pipeline will be defined in the other cpp files for our own organization.
             // In the future we can decide if it is better to include them in this class
-            Func alignment = align(imgs);
-            Image<uint16_t> output = merge(imgs, alignment);
-            return finish(output);
+            //Func alignment = align(imgs);
+            //Image<uint16_t> output = merge(imgs, alignment);
+            return finish(imgs);
         }
 
 };
