@@ -42,9 +42,9 @@ class HDRPlus {
 
             // These three steps of the pipeline will be defined in the other cpp files for our own organization.
             // In the future we can decide if it is better to include them in this class
-            Func alignment = align(imgs);
-            Image<uint16_t> output = merge(imgs, alignment);
-            return finish(output);
+            //Func alignment = align(imgs);
+            //Image<uint16_t> output = merge(imgs, alignment);
+            return finish(imgs);
         }
 
 };
@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
     // TODO: get from commend line arguments
     std::vector<std::string> img_names = {"example.CR2", "example.CR2"};
     std::string img_dir = "../images";
-    std::string output_name = "output.png";
+    std::string output_name = "output4.png";
 
     Image<uint16_t> imgs(HDRPlus::width, HDRPlus::height, img_names.size());
 
