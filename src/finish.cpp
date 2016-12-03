@@ -72,18 +72,32 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
     RDom r1(0, input.width() / 2, 0, input.height() / 2); 
     
     // red
-    output(r1.x * 2 + 1, r1.y * 2, 0) = d1(r1.x * 2 + 1, r1.y * 2);             // R at green in R row, B column
-    output(r1.x * 2, r1.y * 2 + 1, 0) = d2(r1.x * 2, r1.y * 2 + 1);             // R at green in B row, R column
+    output(r1.x * 2 + 1, r1.y * 2,     0) = d1(r1.x * 2 + 1, r1.y * 2);         // R at green in R row, B column
+    output(r1.x * 2,     r1.y * 2 + 1, 0) = d2(r1.x * 2,     r1.y * 2 + 1);     // R at green in B row, R column
     output(r1.x * 2 + 1, r1.y * 2 + 1, 0) = d3(r1.x * 2 + 1, r1.y * 2 + 1);     // R at blue in B row, B column
 
     // green
-    output(r1.x * 2, r1.y * 2, 1) = d0(r1.x * 2, r1.y * 2);                     // G at R locations
+    output(r1.x * 2,     r1.y * 2,     1) = d0(r1.x * 2,     r1.y * 2);         // G at R locations
     output(r1.x * 2 + 1, r1.y * 2 + 1, 1) = d0(r1.x * 2 + 1, r1.y * 2 + 1);     // G at B locations
 
     // blue
-    output(r1.x * 2, r1.y * 2 + 1, 2) = d1(r1.x * 2, r1.y * 2 + 1);             // B at green in B row, R column
-    output(r1.x * 2 + 1, r1.y * 2, 2) = d2(r1.x * 2 + 1, r1.y * 2);             // B at green in R row, B column
-    output(r1.x * 2, r1.y * 2, 2) = d3(r1.x * 2, r1.y * 2);                     // B at red in R row, R column
+    output(r1.x * 2,     r1.y * 2 + 1, 2) = d1(r1.x * 2,     r1.y * 2 + 1);     // B at green in B row, R column
+    output(r1.x * 2 + 1, r1.y * 2,     2) = d2(r1.x * 2 + 1, r1.y * 2);         // B at green in R row, B column
+    output(r1.x * 2,     r1.y * 2,     2) = d3(r1.x * 2,     r1.y * 2);         // B at red in R row, R column
+
+    // schedule
+
+    f0.compute_root().parallel(y).vectorize(x, 16);
+    f1.compute_root().parallel(y).vectorize(x, 16);
+    f2.compute_root().parallel(y).vectorize(x, 16);
+    f3.compute_root().parallel(y).vectorize(x, 16);
+
+    d0.compute_root().parallel(y).vectorize(x, 16);
+    d1.compute_root().parallel(y).vectorize(x, 16);
+    d2.compute_root().parallel(y).vectorize(x, 16);
+    d3.compute_root().parallel(y).vectorize(x, 16);
+
+    // realize image
 
     Image<uint16_t> output_img(input.width(), input.height(), 3);
 
