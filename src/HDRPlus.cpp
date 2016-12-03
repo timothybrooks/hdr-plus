@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
     // TODO: get from commend line arguments
     std::vector<std::string> img_names = {"example.CR2", "example.CR2"};
     std::string img_dir = "../images";
-    std::string output_name = "output.png";
+    std::string output_name = "output4.png";
 
     Image<uint16_t> imgs(HDRPlus::width, HDRPlus::height, img_names.size());
 
