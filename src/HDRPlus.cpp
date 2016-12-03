@@ -28,9 +28,12 @@ class HDRPlus {
 
         static const int width = 5796;
         static const int height = 3870;
+        static const BlackPoint bp = 2050;
+
+        const WhiteBalance wb;
 
         // The reference image will always be the first image
-        HDRPlus(Image<uint16_t> imgs) : imgs(imgs) {
+        HDRPlus(Image<uint16_t> imgs, WhiteBalance wb) : imgs(imgs), wb(wb) {
 
             assert(imgs.dimensions() == 3);        // width * height * img_idx
             assert(imgs.width() == width);
@@ -42,9 +45,10 @@ class HDRPlus {
 
             // These three steps of the pipeline will be defined in the other cpp files for our own organization.
             // In the future we can decide if it is better to include them in this class
-            //Func alignment = align(imgs);
-            //Image<uint16_t> output = merge(imgs, alignment);
-            return finish(imgs);
+            Func alignment;// = align(imgs);
+            Image<uint16_t> output = merge(imgs, alignment);
+
+            return finish(output, HDRPlus::bp, wb);
         }
 
 };
@@ -109,7 +113,7 @@ int main(int argc, char* argv[]) {
     // TODO: get from commend line arguments
     std::vector<std::string> img_names = {"example.CR2", "example.CR2"};
     std::string img_dir = "../images";
-    std::string output_name = "output4.png";
+    std::string output_name = "example_output.png";
 
     Image<uint16_t> imgs(HDRPlus::width, HDRPlus::height, img_names.size());
 
@@ -120,7 +124,10 @@ int main(int argc, char* argv[]) {
     // and for now we just use the first image
     //int ref_idx = find_reference(imgs);
 
-    HDRPlus hdr_plus = HDRPlus(imgs);
+    // TODO: read these values from the reference image header (possibly using dcraw)
+    WhiteBalance wb = {2.09863, 1, 1, 1.50391};   // r, g0, g1, b
+
+    HDRPlus hdr_plus = HDRPlus(imgs, wb);
 
     // This image has an RGB interleaved memory layout
     Image<uint8_t> output = hdr_plus.process();

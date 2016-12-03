@@ -1,5 +1,4 @@
-#ifndef HDRPLUS_MERGE_H_
-#define HDRPLUS_MERGE_H_
+#include "merge.h"
 
 #include "Halide.h"
 
@@ -26,5 +25,3 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     return output_img;
 }
-
-#endif
