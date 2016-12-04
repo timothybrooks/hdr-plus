@@ -1,7 +1,7 @@
 #ifndef HDRPLUS_ALIGN_H_
 #define HDRPLUS_ALIGN_H_
 
-#define TILE_SIZE 16
+#define TILE_SIZE 16 //Must be a multiple of 2
 #define SEARCH_RANGE 4
 #define DOWNSAMPLE_FACTOR 4
 

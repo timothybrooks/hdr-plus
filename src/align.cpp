@@ -75,13 +75,15 @@ Func L2_scores(Func pyramid_layer) {
     Func output(pyramid_layer.name() + "_L2_scores");
     Var tile_x, tile_y, offset_x, offset_y, n;
     RDom r(0, TILE_SIZE, 0, TILE_SIZE);
-    Expr component_dist = pyramid_layer((tile_x/2) * TILE_SIZE + r.x, (tile_y/2) * TILE_SIZE + r.y, 0) - pyramid_layer((tile_x/2) * TILE_SIZE + r.x - offset_x, (tile_y/2) * TILE_SIZE + r.y - offset_y, n + 1);
+    Expr component_dist = cast<int32_t>(pyramid_layer(tile_x * TILE_SIZE/2 + r.x, tile_y * TILE_SIZE/2 + r.y, 0)) - 
+                          cast<int32_t>(pyramid_layer(tile_x * TILE_SIZE/2 + r.x + offset_x, tile_y * TILE_SIZE/2 + r.y + offset_y, n));
     output(tile_x, tile_y, offset_x, offset_y, n) = sum(component_dist * component_dist);
+
     return output;
 }
 
 //pyramid layer(x,y,n) -> uint16_t
-//prev_best_offsets(isYOffset,tileX,tileY,n) -> uint16_t
+//prev_best_offsets(is_y_offset,tileX,tileY,n) -> uint16_t
 //this version of the function takes into account the previous offset
 /*
 Func L2_scores(Func pyramid_layer, Func prev_best_offsets) {
@@ -112,18 +114,17 @@ Func best_offsets(Func offset_scores) {
     Func best_scores(offset_scores.name() + "_best_scores");
 
     Var is_y_offset, tile_x, tile_y, n;
-    output(is_y_offset, tile_x, tile_y, n) = cast<uint16_t>(0);
+    output(is_y_offset, tile_x, tile_y, n) = cast<int16_t>(0);
 
-    //r0: offset_x, offset_y
     RDom r0(-SEARCH_RANGE, 2 * SEARCH_RANGE, -SEARCH_RANGE, 2 * SEARCH_RANGE);
     best_scores(tile_x, tile_y, n) = minimum(offset_scores(tile_x, tile_y, r0.x, r0.y, n));
 
-    //r1: offset_x, offset_y
     RDom r1(-SEARCH_RANGE, 2 * SEARCH_RANGE, -SEARCH_RANGE, 2 * SEARCH_RANGE);
+
     output(0, tile_x, tile_y, n) = 
-        select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), cast<uint16_t>(r1.x), output(0, tile_x, tile_y, n));
+        select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), cast<int16_t>(r1.x), output(0, tile_x, tile_y, n));
     output(1, tile_x, tile_y, n) = 
-        select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), cast<uint16_t>(r1.y), output(1, tile_x, tile_y, n));
+        select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), cast<int16_t>(r1.y), output(1, tile_x, tile_y, n));
     return output;
 }
 
@@ -156,7 +157,7 @@ Func best_offsets(Func offset_scores, Func prev_best_offsets) {
 */
 
 Func align(Image<uint16_t> imgs) {
-    Var x, y, n, isYOffset, tile, tile_x, tile_y, offset, offset_x, offset_y;
+    Var x, y, n, is_y_offset, tile, tile_x, tile_y, offset, offset_x, offset_y;
     Func clamped_imgs("clamped_imgs");
     clamped_imgs = BoundaryConditions::mirror_image(imgs);
 
@@ -193,38 +194,14 @@ Func align(Image<uint16_t> imgs) {
     offset_scores_0.compute_root();
     
     Func alignment("alignment");
-    alignment(isYOffset, tile_x, tile_y, n) = best_offsets(offset_scores_0)(isYOffset, tile_x, tile_y, n);
-    //alignment(isYOffset, tile_x, tile_y, n) = cast<uint16_t>(0);
+    alignment(is_y_offset, tile_x, tile_y, n) = best_offsets(offset_scores_0)(is_y_offset, tile_x, tile_y, n);
+    //alignment(is_y_offset, tile_x, tile_y, n) = cast<uint16_t>(4);
+
     
     //alignment schedule
     alignment.vectorize(tile_x,8);
     alignment.parallel(tile_y);
     alignment.compute_root();
-    
-    //TODO REMOVE NULL HYPOTHESIS CHECK
-    // Func maxOffset("null_hypothesis_check");
-    // Var foo;
-    // RDom r(0, 2, 0, imgs.extent(0) / DOWNSAMPLE_FACTOR / TILE_SIZE * 2 -1, 0, imgs.extent(1) / DOWNSAMPLE_FACTOR / TILE_SIZE * 2 -1, 0, imgs.extent(2) - 1);
-    // maxOffset(foo) = maximum(alignment(r.x,r.y,r.x,r.w));
-    // Image <uint16_t> test_img(1);
-    // maxOffset.realize(test_img);
-    // assert(test_img.data()[0] == 0);
-
-    //TODO REMOVE ALIGNMENT PRINTING
-    Image <uint16_t> alignment_image(2, imgs.extent(0) / DOWNSAMPLE_FACTOR / TILE_SIZE * 2 - 1, imgs.extent(1) / DOWNSAMPLE_FACTOR/ TILE_SIZE * 2 - 1, imgs.extent(2) - 1);
-    alignment.realize(alignment_image);
-    std::cout << std::endl;
-    std::cout << std::endl;
-    std::cout << std::endl;
-    for (int i = 0; i < 50000; i++) {
-        std::cout << "alignment[" << i << "]:" << alignment_image.data()[i] << std::endl;
-        assert(alignment_image.data()[i] == 0);
-    }
-    std::cout << std::endl;
-    std::cout << std::endl;
-    std::cout << std::endl;
-    std::cout << std::endl;
-    exit(1);
     
     return alignment;
 }
