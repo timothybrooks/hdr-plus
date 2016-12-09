@@ -3,7 +3,8 @@
 
 #include "Halide.h"
 
-#define TILE_SIZE 16
+#define T_SIZE 32
+#define T_SIZE_2 16
 
 Halide::Image<uint16_t> merge(Halide::Image<uint16_t> imgs, Halide::Func alignment);
 

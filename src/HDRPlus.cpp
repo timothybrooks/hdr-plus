@@ -27,9 +27,9 @@ class HDRPlus {
     public:
 
         // dimensions of pixel phone output images are 3036 x 4048
-        // rounded down so both dimensions are a multiple of 8
-        static const int width = 4000;
-        static const int height = 3000;
+        // rounded down so both dimensions are a multiple of 16
+        static const int width = 4032;
+        static const int height = 3024;
 
         const BlackPoint bp;
         const WhiteBalance wb;
@@ -48,7 +48,7 @@ class HDRPlus {
             // These three steps of the pipeline will be defined in the other cpp files for our own organization.
             // In the future we can decide if it is better to include them in this class
 
-            Func alignment = align(imgs);
+            Func alignment;// = align(imgs);
             Image<uint16_t> output = merge(imgs, alignment);
 
             return finish(output, bp, wb);

@@ -6,16 +6,6 @@
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-inline Expr clamp_u16(Expr e) {
-
-    return u16(clamp(e, 0, 65535));
-}
-
-inline Expr clamp_u8(Expr e) {
-
-    return u8(clamp(e, 0, 255));
-}
-
 // Should black point be separately defined for RGB (or RGGB) channels?
 Image<uint16_t> black_point(Image<uint16_t> input, const BlackPoint bp) {
 
@@ -23,7 +13,7 @@ Image<uint16_t> black_point(Image<uint16_t> input, const BlackPoint bp) {
 
     Var x, y;
 
-    output(x, y) = clamp_u16(i32(input(x, y)) - bp);
+    output(x, y) = u16_sat(i32(input(x, y)) - bp);
 
     // schedule
 
@@ -49,10 +39,10 @@ Image<uint16_t> white_balance(Image<uint16_t> input, const WhiteBalance &wb) {
 
     RDom r(0, input.width() / 2, 0, input.height() / 2);
 
-    output(r.x * 2    , r.y * 2    ) = clamp_u16(wb.r  * f32(input(r.x * 2    , r.y * 2    )));   // red
-    output(r.x * 2 + 1, r.y * 2    ) = clamp_u16(wb.g0 * f32(input(r.x * 2 + 1, r.y * 2    )));   // green 0
-    output(r.x * 2    , r.y * 2 + 1) = clamp_u16(wb.g1 * f32(input(r.x * 2    , r.y * 2 + 1)));   // green 1
-    output(r.x * 2 + 1, r.y * 2 + 1) = clamp_u16(wb.b  * f32(input(r.x * 2 + 1, r.y * 2 + 1)));   // blue
+    output(r.x * 2    , r.y * 2    ) = u16_sat(wb.r  * f32(input(r.x * 2    , r.y * 2    )));   // red
+    output(r.x * 2 + 1, r.y * 2    ) = u16_sat(wb.g0 * f32(input(r.x * 2 + 1, r.y * 2    )));   // green 0
+    output(r.x * 2    , r.y * 2 + 1) = u16_sat(wb.g1 * f32(input(r.x * 2    , r.y * 2 + 1)));   // green 1
+    output(r.x * 2 + 1, r.y * 2 + 1) = u16_sat(wb.b  * f32(input(r.x * 2 + 1, r.y * 2 + 1)));   // blue
 
     // schedule
 
@@ -123,10 +113,10 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
 
     Func input_mirror = BoundaryConditions::mirror_image(input);
 
-    d0(x, y) = clamp_u16(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f0(r0.x, r0.y)) / f0_sum);
-    d1(x, y) = clamp_u16(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f1(r0.x, r0.y)) / f1_sum);
-    d2(x, y) = clamp_u16(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f2(r0.x, r0.y)) / f2_sum);
-    d3(x, y) = clamp_u16(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f3(r0.x, r0.y)) / f3_sum);
+    d0(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f0(r0.x, r0.y)) / f0_sum);
+    d1(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f1(r0.x, r0.y)) / f1_sum);
+    d2(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f2(r0.x, r0.y)) / f2_sum);
+    d3(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f3(r0.x, r0.y)) / f3_sum);
 
     Func output("demosaic_output");
     
@@ -208,8 +198,8 @@ Image<uint8_t> finish(Image<uint16_t> input, const BlackPoint bp, const WhiteBal
     Func output;
     Var x, y, c;
 
-    int brighten_factor = 80;   // for now, because gamma correction is not implemented
-    output(c, x, y) = clamp_u8(brighten_factor * u32(demosaic_output(x, y, c)) / 256);
+    //int brighten_factor = 80;   // for now, because gamma correction is not implemented
+    output(c, x, y) = u8_sat(demosaic_output(x, y, c) / 256);
 
     Image<uint8_t> output_img(3, input.width(), input.height());
 
