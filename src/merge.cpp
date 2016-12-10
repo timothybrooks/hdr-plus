@@ -8,8 +8,10 @@
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-//alignment(isYOffset, tx, ty, n)
-
+/*
+ * TODO: add function description here and in header
+ * alignment(isYOffset, tx, ty, n)
+ */
 Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     // TODO: Weiner filtering or something like that...
@@ -34,9 +36,11 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     Func merge_temporal("merge_temporal");
 
-    merge_temporal(ix, iy, tx, ty) = imgs_bound(idx_im(tx, ix), idx_im(ty, iy), 0);         // reference image
+    // initialize to reference image
+    merge_temporal(ix, iy, tx, ty) = imgs_bound(idx_im(tx, ix), idx_im(ty, iy), 0);         
 
-    merge_temporal(ix, iy, tx, ty) = u16((u32(merge_temporal(ix, iy, tx, ty))               // alternate images
+    // add alternate images
+    merge_temporal(ix, iy, tx, ty) = u16((u32(merge_temporal(ix, iy, tx, ty))
                                     + sum(u32(imgs_bound(al_x, al_y, r)))) / num_imgs);
 
     ///////////////////////////////////////////////////////////////////////////
@@ -76,29 +80,30 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
                             + coef_01 * val_01
                             + coef_11 * val_11);
 
+    ///////////////////////////////////////////////////////////////////////////
     // schedule
+    ///////////////////////////////////////////////////////////////////////////
 
     merge_temporal.compute_root()
-                  .vectorize(ix, 16)
                   .parallel(ty)
-                  .parallel(tx);
+                  .parallel(tx)
+                  .vectorize(ix, 16);
 
     coef.compute_root()
         .vectorize(n, 16);
 
-    // TODO: Not sure why Halide throws an error when I try scheduling here...
+    merge_spatial.compute_root()
+                 .parallel(y)
+                 .vectorize(x, 16);
 
-    //merge_spatial.compute_root()
-    //             .parallel(y)
-    //             .vectorize(x);
-
+    ///////////////////////////////////////////////////////////////////////////
     // realize image
+    ///////////////////////////////////////////////////////////////////////////
 
     Image<uint16_t> merge_spatial_img(w, h);
-    merge_spatial_img.set_min(0, 0);
     merge_spatial.realize(merge_spatial_img);
 
-    // uncomment following lines to write out intermediate image
+    // uncomment following lines to write out intermediate image for testng
 
     // Func test;
     // test(x, y) = u8(merge_spatial(x, y));
