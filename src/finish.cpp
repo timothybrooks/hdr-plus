@@ -199,7 +199,7 @@ Image<uint8_t> finish(Image<uint16_t> input, const BlackPoint bp, const WhiteBal
     Var x, y, c;
 
     //int brighten_factor = 80;   // for now, because gamma correction is not implemented
-    output(c, x, y) = u8_sat(demosaic_output(x, y, c) / 256);
+    output(c, x, y) = u8_sat(demosaic_output(x, y, c));
 
     Image<uint8_t> output_img(3, input.width(), input.height());
 

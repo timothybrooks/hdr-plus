@@ -1,32 +1,12 @@
 #include "merge.h"
+#include "align.h"
 
 #include "Halide.h"
 
-#define PI 3.141592f
-#include "../include/stb_image_write.h"
+// #include "../include/stb_image_write.h"
 
 using namespace Halide;
 using namespace Halide::ConciseCasts;
-
-Expr tile_0(Expr e) {
-    return e / T_SIZE_2 - 1;
-}
-
-Expr tile_1(Expr e) {
-    return e / T_SIZE_2;
-}
-
-Expr idx_0(Expr e) {
-    return e % T_SIZE_2 + T_SIZE_2;
-}
-
-Expr idx_1(Expr e) {
-    return e % T_SIZE_2;
-}
-
-Expr idx_im(Expr t, Expr i) {
-    return t * T_SIZE_2 + i;
-}
 
 //alignment(isYOffset, tx, ty, n)
 
@@ -36,26 +16,28 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     int w = imgs.width();
     int h = imgs.height();
+    int num_imgs = imgs.extent(2);
+    int num_alts = num_imgs - 1;
 
-    //std::cout << "test: " << (-1 % 2) << std::endl;
-    //int num_imgs = imgs.extent(2);
+    // aligned x and y
 
-    Func merge_temporal("merge_temporal");
     Var ix, iy, tx, ty;
 
-    //RDom r(0, num_imgs);
+    RDom r(1, num_alts);
 
-    //merge_temporal(ix, iy, tx, ty) = u16(sum(u32(imgs(idx_im(tx, ix), idx_im(ty, iy), r))) / num_imgs);
+    Expr al_x = idx_im(tx, ix) + alignment(0, tx, ty, r);
+    Expr al_y = idx_im(ty, iy) + alignment(1, tx, ty, r);
 
-    // edge cases
+    Func imgs_bound = BoundaryConditions::constant_exterior(imgs, 0);
 
-    //merge_temporal(ix, iy, -1, ty) = merge_temporal(ix - T_SIZE_2, iy - T_SIZE_2, 0, ty);
-    //merge_temporal(ix, iy, tx, -1) = merge_temporal(ix - T_SIZE_2, iy - T_SIZE_2, tx, 0);
+    // temporal merge function using averaging
 
-    //merge_temporal(ix, iy, w, ty) = merge_temporal(ix + T_SIZE_2, iy - T_SIZE_2, w - 1, ty);
-    //merge_temporal(ix, iy, tx, h) = merge_temporal(ix + T_SIZE_2, iy - T_SIZE_2, tx, h - 1);
+    Func merge_temporal("merge_temporal");
 
-    merge_temporal(ix, iy, tx, ty) = select((tx + ty) % 2 == 0, 0, 255);
+    merge_temporal(ix, iy, tx, ty) = imgs_bound(idx_im(tx, ix), idx_im(ty, iy), 0);         // reference image
+
+    merge_temporal(ix, iy, tx, ty) = u16((u32(merge_temporal(ix, iy, tx, ty))               // alternate images
+                                    + sum(u32(imgs_bound(al_x, al_y, r)))) / num_imgs);
 
     ///////////////////////////////////////////////////////////////////////////
     // spatial merging
@@ -66,9 +48,10 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
     Func coef("coef_raised_cosine");
     Var n;
 
-    coef(n) = 0.5f - 0.5f * cos(2 * PI * (n + 0.5f) / T_SIZE);
+    float pi = 3.141592f;
+    coef(n) = 0.5f - 0.5f * cos(2 * pi * (n + 0.5f) / T_SIZE);
 
-    // tile coefficient expressions
+    // tile coefficients
 
     Var x, y;
 
@@ -95,10 +78,16 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     // schedule
 
+    merge_temporal.compute_root()
+                  .vectorize(ix, 16)
+                  .parallel(ty)
+                  .parallel(tx);
+
     coef.compute_root()
         .vectorize(n, 16);
 
     // TODO: Not sure why Halide throws an error when I try scheduling here...
+
     //merge_spatial.compute_root()
     //             .parallel(y)
     //             .vectorize(x);
@@ -106,15 +95,16 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
     // realize image
 
     Image<uint16_t> merge_spatial_img(w, h);
+    merge_spatial_img.set_min(0, 0);
     merge_spatial.realize(merge_spatial_img);
 
-    Func test;
-    test(x, y) = u8(merge_spatial(x, y));
-    Image<uint8_t> test_img(w, h);
-    test.realize(test_img);
+    // uncomment following lines to write out intermediate image
 
-
-    stbi_write_png("../images/test.png", w, h, 1, test_img.data(), w);
+    // Func test;
+    // test(x, y) = u8(merge_spatial(x, y));
+    // Image<uint8_t> test_img(w, h);
+    // test.realize(test_img);
+    // stbi_write_png("../images/test.png", w, h, 1, test_img.data(), w);
     
     return merge_spatial_img;
 }
