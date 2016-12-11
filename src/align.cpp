@@ -119,17 +119,14 @@ Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max
     ///////////////////////////////////////////////////////////////////////////
 
     scores.compute_root()
-          .parallel(n)
           .parallel(ty)
           .vectorize(tx, 16);
 
     min_scores.compute_root()
-              .parallel(n)
               .parallel(ty)
               .vectorize(tx, 16);
 
     alignment.compute_root()
-             .parallel(n)
              .parallel(ty)
              .vectorize(tx, 16);
 
@@ -164,7 +161,7 @@ Func align(Image<uint16_t> imgs) {
     Func alignment_0 = align_layer(layer_0, alignment_1, min_0, max_0);
 
     Func alignment("alignment");
-    
+
     int num_tx = imgs.width() / T_SIZE_2 - 1;
     int num_ty = imgs.height() / T_SIZE_2 - 1;
 
@@ -175,35 +172,12 @@ Func align(Image<uint16_t> imgs) {
     ///////////////////////////////////////////////////////////////////////////
 
     alignment_3.compute_root()
-               .parallel(n)
                .parallel(ty)
                .vectorize(tx, 16);
 
     alignment.compute_root()
-             .parallel(n)
              .parallel(ty)
              .vectorize(tx, 16);
-
-    // realize image
-
-    // Image<int16_t> alignment_img_x(num_tx + 2, num_ty + 2, num_alts);
-    // Image<int16_t> alignment_img_y(num_tx + 2, num_ty + 2, num_alts);
-
-    // alignment_img_x.set_min(-1, -1, 1);
-    // alignment_img_y.set_min(-1, -1, 1);
-
-    // Realization r = {alignment_img_x, alignment_img_y};
-
-    // alignment.realize(r);
-
-    // TODO: Get rid of this when you can
-
-    // Func temp("temp");
-    // Var a, b, c, d;
-    // temp(a, b, c, d) = select(a == 1, P(alignment(b, c, d)).y, P(alignment(b, c, d)).x);
-    // temp.vectorize(b,8);
-    // temp.parallel(c);
-    // temp.compute_root();
     
     return alignment;
 }
