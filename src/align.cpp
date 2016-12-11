@@ -1,6 +1,7 @@
 #include <string>
 #include "align.h"
 #include "Halide.h"
+#include "Point.h"
 
 using namespace Halide;
 using namespace Halide::ConciseCasts;
@@ -15,71 +16,6 @@ inline Halide::Expr prev_tile(Halide::Expr t) { return (t - 1) / DOWNSAMPLE_FACT
  * Returns the image index given a tile and the inner index into the tile.
  */
 inline Halide::Expr idx_layer(Halide::Expr t, Halide::Expr i) { return t * T_SIZE_2 / 2 + i; }
-
-struct Point {
-    Expr x, y;
-
-    // Construct from a Tuple
-    Point(Tuple t) : x(i16(t[0])), y(i16(t[1])) {}
-
-    // Construct from a pair of Exprs
-    Point(Expr x, Expr y) : x(i16(x)), y(i16(y)) {}
-
-    // Construct from a call to a Func by treating it as a Tuple
-    Point(FuncRef t) : Point(Tuple(t)) {}
-
-    // Convert to a Tuple
-    operator Tuple() const {
-        return {x, y};
-    }
-
-    // Point addition
-    Point operator+(const Point &other) const {
-        return {x + other.x, y + other.y};
-    }
-
-    // Point subtraction
-    Point operator-(const Point &other) const {
-        return {x - other.x, y - other.y};
-    }
-
-    // Scalar multiplication
-    Point operator*(const int n) const {
-        return {n * x, n * y};
-    }
-
-};
-
-typedef Point P;
-
-Point operator*(const int n, const Point p) {
-    return p * n;
-}
-
-Point operator-(const Point p) {
-    return Point(-p.x, -p.y);
-}
-
-inline Point print(Point p) {
-    return Point(print(p.x, p.y), p.y);
-}
-
-template <typename... Args>
-inline Point print_when(Expr condition, Point p, Args&&... args) {
-    return Point(print_when(condition, p.x, p.y, args...), p.y);
-}
-
-inline Point select(Expr condition, Point true_value, Point false_value) {
-    return Point(select(condition, true_value.x, false_value.x), select(condition, true_value.y, false_value.y));
-}
-
-inline Point clamp(Point p, Point min_p, Point max_p) {
-    return Point(clamp(p.x, min_p.x, max_p.x), clamp(p.y, min_p.y, max_p.y));
-}
-
-//////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////
 
 Func box_down2(Func input) {
 
@@ -140,126 +76,6 @@ Func gauss_down4(Func input) {
 
     return output;
 }
-
-//try every offset in SEARCH_RANGE and record the score
-//this version of the function assumes no previous offset.
-//TODO: Avoid computation for layer 0
-// Func L2_scores(Func pyramid_layer) {
-//     assert(pyramid_layer.dimensions() == 3);
-//     Func output(pyramid_layer.name() + "_L2_scores");
-//     Var tile_x, tile_y, offset_x, offset_y, n;
-//     RDom r(0, T_SIZE, 0, T_SIZE);
-//     Expr component_dist = cast<int32_t>(pyramid_layer(tile_x * T_SIZE_2 + r.x, tile_y * T_SIZE_2 + r.y, 0)) - 
-//                           cast<int32_t>(pyramid_layer(tile_x * T_SIZE_2 + r.x + offset_x, tile_y * T_SIZE_2 + r.y + offset_y, n));
-//     output(tile_x, tile_y, offset_x, offset_y, n) = sum(component_dist * component_dist);
-
-//     return output;
-// }
-
-//pyramid layer(x,y,n) -> uint16_t
-//prev_best_offsets(is_y_offset,tileX,tileY,n) -> uint16_t
-//this version of the function takes into account the previous offset
-/*
-Func L2_scores(Func pyramid_layer, Func prev_best_offsets) {
-    assert(pyramid_layer.dimensions() == 3);
-    assert(prev_best_offsets.dimensions() == 4);
-
-    Func output(pyramid_layer.name() + "_L2_scores");
-    Var tile_x, tile_y, offset_x, offset_y, n;
-    
-    Expr old_tile_x = tile_x / DOWNSAMPLE_FACTOR;
-    Expr old_tile_y = tile_y / DOWNSAMPLE_FACTOR;
-    Expr prev_offset_x = prev_best_offsets(0, old_tile_x, old_tile_y, n) * DOWNSAMPLE_FACTOR;
-    Expr prev_offset_y = prev_best_offsets(1, old_tile_x, old_tile_y, n) * DOWNSAMPLE_FACTOR;
-
-    RDom r(0, T_SIZE, 0, T_SIZE);
-    //TODO avoid out of bounds here
-    Expr component_dist = pyramid_layer((tile_x/2) * T_SIZE + r.x, (tile_y/2) * T_SIZE + r.y, 0) - pyramid_layer((tile_x/2) * T_SIZE + r.x - offset_x - prev_offset_x, (tile_y/2) * T_SIZE + r.y - offset_y - prev_offset_y , n + 1);
-    output(tile_x, tile_y, offset_x, offset_y, n) = 2;//sum(component_dist * component_dist);
-    return output;
-}
-*/
-
-//offset_scores(tile_x, tile_y, offset_x, offset_y, n);
-//best_offsets(is_y_offset, tile_x, tile_y, n)
-// Func best_offsets(Func offset_scores) {
-//     assert(offset_scores.dimensions() == 5);
-//     Func output(offset_scores.name() + "_best_offsets");
-//     Func best_scores(offset_scores.name() + "_best_scores");
-
-//     Var is_y_offset, tile_x, tile_y, n;
-//     output(is_y_offset, tile_x, tile_y, n) = cast<int16_t>(0);
-
-//     RDom r0(-SEARCH_RANGE, 2 * SEARCH_RANGE, -SEARCH_RANGE, 2 * SEARCH_RANGE);
-//     best_scores(tile_x, tile_y, n) = minimum(offset_scores(tile_x, tile_y, r0.x, r0.y, n));
-
-//     RDom r1(-SEARCH_RANGE, 2 * SEARCH_RANGE, -SEARCH_RANGE, 2 * SEARCH_RANGE);
-
-//     output(0, tile_x, tile_y, n) = 
-//         select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), cast<int16_t>(r1.x), output(0, tile_x, tile_y, n));
-//     output(1, tile_x, tile_y, n) = 
-//         select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), cast<int16_t>(r1.y), output(1, tile_x, tile_y, n));
-//     return output;
-// }
-
-/*
-Func best_offsets(Func offset_scores, Func prev_best_offsets) {
-    assert(offset_scores.dimensions() == 5);
-    Func output(offset_scores.name() + "_best_offsets");
-    Func best_scores(offset_scores.name() + "_best_scores");
-    
-    Var is_y_offset, tile_x, tile_y, n;
-    output(is_y_offset, tile_x, tile_y, n) = (uint16_t) 0;
-
-    //r0: offset_x, offset_y
-    RDom r0(-SEARCH_RANGE, 2 * SEARCH_RANGE + 1, -SEARCH_RANGE, 2 * SEARCH_RANGE + 1);
-    best_scores(tile_x, tile_y, n) = minimum(offset_scores(tile_x, tile_y, r0.x, r0.y, n));
-
-    Expr old_tile_x = tile_x/DOWNSAMPLE_FACTOR;
-    Expr old_tile_y = tile_y/DOWNSAMPLE_FACTOR;
-    Expr prev_offset_x = prev_best_offsets(0, old_tile_x, old_tile_y, n) * DOWNSAMPLE_FACTOR;
-    Expr prev_offset_y = prev_best_offsets(1, old_tile_x, old_tile_y, n) * DOWNSAMPLE_FACTOR;
-
-    //r1: offset_x, offset_y
-    RDom r1(-SEARCH_RANGE, 2 * SEARCH_RANGE + 1, -SEARCH_RANGE, 2 * SEARCH_RANGE + 1);
-    output(0, tile_x, tile_y, n) = 
-        select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), r1.x + prev_offset_x, output(0, tile_x, tile_y, n));
-    output(1, tile_x, tile_y, n) = 
-        select(offset_scores(tile_x, tile_y, r1.x, r1.y, n) == best_scores(tile_x, tile_y, n), r1.y + prev_offset_y, output(1, tile_x, tile_y, n));
-    return output;
-}
-*/
-
-    // layer_0.vectorize(x, 8);
-    // layer_0.parallel(y);
-    // layer_0.compute_root();
-
-    
-    // Func layer_1 = gauss_down4(layer_0);
-    // Func layer_2 = gauss_down4(layer_1);
-
-    // //offset_scores_n(tile_x, tile_y, marginal_offset_x, marginal_offset_y, n) marginal offsets are relative to inherited offset
-    
-    // Func offset_scores_2 = L2_scores(layer_2);
-    // Func best_offsets_2 = best_offsets(offset_scores_2);
-
-    // Func offset_scores_1 = L2_scores(layer_1, best_offsets_2);
-    // Func best_offsets_1 = best_offsets(offset_scores_1, best_offsets_2);
-
-    // Func offset_scores_0 = L2_scores(layer_0, best_offsets_1);
-    // Func best_offsets_0 = best_offsets(offset_scores_0, best_offsets_1);
-    
-    // Func offset_scores_0("offset_scores_0");
-    // offset_scores_0(tile_x, tile_y, offset_x, offset_y, n) = L2_scores(layer_0)(tile_x, tile_y, offset_x, offset_y, n);
-
-    // //offset_scores_0 schedule
-    // offset_scores_0.vectorize(tile_x, 8);
-    // offset_scores_0.fuse(offset_x, offset_y, offset);
-    // offset_scores_0.parallel(offset);
-    // offset_scores_0.compute_root();
-
-    //best_offsets(offset_scores_0)(is_y_offset, tile_x, tile_y, n);
-    //alignment(is_y_offset, tile_x, tile_y, n) = cast<uint16_t>(4);
 
 Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max) {
 
@@ -322,10 +138,6 @@ Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max
 
 Func align(Image<uint16_t> imgs) {
 
-    int num_tx = imgs.width() / T_SIZE_2 - 1;
-    int num_ty = imgs.height() / T_SIZE_2 - 1;
-    int num_alts = imgs.extent(2) - 1;
-
     Func imgs_mirror = BoundaryConditions::mirror_interior(imgs);
 
     Func layer_0 = box_down2(imgs_mirror);
@@ -352,6 +164,10 @@ Func align(Image<uint16_t> imgs) {
     Func alignment_0 = align_layer(layer_0, alignment_1, min_0, max_0);
 
     Func alignment("alignment");
+    
+    int num_tx = imgs.width() / T_SIZE_2 - 1;
+    int num_ty = imgs.height() / T_SIZE_2 - 1;
+
     alignment(tx, ty, n) = 2 * P(alignment_0(clamp(tx, 0, num_tx), clamp(ty, 0, num_ty), n));
 
     ///////////////////////////////////////////////////////////////////////////
@@ -382,12 +198,12 @@ Func align(Image<uint16_t> imgs) {
 
     // TODO: Get rid of this when you can
 
-    Func temp("temp");
-    Var a, b, c, d;
-    temp(a, b, c, d) = select(a == 1, P(alignment(b, c, d)).y, P(alignment(b, c, d)).x);
-    temp.vectorize(b,8);
-    temp.parallel(c);
-    temp.compute_root();
+    // Func temp("temp");
+    // Var a, b, c, d;
+    // temp(a, b, c, d) = select(a == 1, P(alignment(b, c, d)).y, P(alignment(b, c, d)).x);
+    // temp.vectorize(b,8);
+    // temp.parallel(c);
+    // temp.compute_root();
     
-    return temp;
+    return alignment;
 }

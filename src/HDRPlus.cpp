@@ -93,7 +93,8 @@ class HDRPlus {
                 int x_offset = ((img_width  - width ) / 4) * 2;
                 int y_offset = ((img_height - height) / 4) * 2; 
 
-                if (n == 1) x_offset += 200;
+                if (n == 1) x_offset += 140;
+                if (n == 1) y_offset += -62;
 
                 for (int y = 0; y < height; y++) {
                     for (int x = 0; x < width; x++) {

@@ -2,6 +2,7 @@
 #include "align.h"
 
 #include "Halide.h"
+#include "Point.h"
 
 // #include "../include/stb_image_write.h"
 
@@ -27,8 +28,10 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     RDom r(1, num_alts);
 
-    Expr al_x = idx_im(tx, ix) + alignment(0, tx, ty, r);
-    Expr al_y = idx_im(ty, iy) + alignment(1, tx, ty, r);
+    Point offset = P(alignment(tx, ty, r));
+
+    Expr al_x = idx_im(tx, ix) + offset.x;
+    Expr al_y = idx_im(ty, iy) + offset.y;
 
     Func imgs_mirror = BoundaryConditions::mirror_interior(imgs);
 
