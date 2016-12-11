@@ -9,12 +9,6 @@
 
 #include "Halide.h"
 
-/*
- * Returns an index to the nearest tile in the previous level of the pyramid
- * Would prefer (tile_e - 1) / DOWNSAMPLE_FACTOR, but CPP rounds division to 0
- */
-inline Halide::Expr nearest_old_tile(Halide::Expr tile_e) { return (tile_e + DOWNSAMPLE_FACTOR - 1) / DOWNSAMPLE_FACTOR - 1;}
-
 /* 
  * Returns the upper (for y input) or left (for x input) tile that an image
  * index touches.

@@ -30,16 +30,16 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
     Expr al_x = idx_im(tx, ix) + alignment(0, tx, ty, r);
     Expr al_y = idx_im(ty, iy) + alignment(1, tx, ty, r);
 
-    Func imgs_bound = BoundaryConditions::constant_exterior(imgs, 0);
+    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs);
 
     // temporal merge function using averaging
 
     Func merge_temporal("merge_temporal");
 
-    merge_temporal(ix, iy, tx, ty) = imgs_bound(idx_im(tx, ix), idx_im(ty, iy), 0);         // initialize to reference image
+    merge_temporal(ix, iy, tx, ty) = imgs_mirror(idx_im(tx, ix), idx_im(ty, iy), 0);         // initialize to reference image
 
     merge_temporal(ix, iy, tx, ty) = u16((u32(merge_temporal(ix, iy, tx, ty))               // add alternate images
-                                    + sum(u32(imgs_bound(al_x, al_y, r)))) / num_imgs);
+                                    + sum(u32(imgs_mirror(al_x, al_y, r)))) / num_imgs);
 
     ///////////////////////////////////////////////////////////////////////////
     // spatial merging

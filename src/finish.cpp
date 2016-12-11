@@ -269,9 +269,9 @@ Image<uint16_t> gamma_correct(Image<uint16_t> input) {
     float gamma_fac = 680.552897;       // 1.055 * UINT16_MAX ^ (1 - gamma_pow);
     float gamma_con = -3604.425;        // -0.055 * UINT16_MAX
 
-    output(x, y, c) = print(u16(select(input(x, y, c) < cutoff,
+    output(x, y, c) = u16(select(input(x, y, c) < cutoff,
                                  gamma_toe * input(x, y, c),
-                                 gamma_fac * pow(input(x, y, c), gamma_pow) + gamma_con)));
+                                 gamma_fac * pow(input(x, y, c), gamma_pow) + gamma_con));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
