@@ -32,10 +32,11 @@ class HDRPlus {
         static const int height = 3024;
 
         const BlackPoint bp;
+        const WhitePoint wp;
         const WhiteBalance wb;
 
         // The reference image will always be the first image
-        HDRPlus(Image<uint16_t> imgs, BlackPoint bp, WhiteBalance wb) : imgs(imgs), bp(bp), wb(wb) {
+        HDRPlus(Image<uint16_t> imgs, BlackPoint bp, WhitePoint wp, WhiteBalance wb) : imgs(imgs), bp(bp), wp(wp), wb(wb) {
 
             assert(imgs.dimensions() == 3);         // width * height * img_idx
             assert(imgs.width() == width);
@@ -51,7 +52,7 @@ class HDRPlus {
             Func alignment = align(imgs);
             Image<uint16_t> output = merge(imgs, alignment);
 
-            return finish(output, bp, wb);
+            return finish(output, bp, wp, wb);
         }
 
         static bool load_raws(std::string dir_path, std::vector<std::string> &img_names, Image<uint16_t> &imgs) {
@@ -173,8 +174,9 @@ int main(int argc, char* argv[]) {
     // TODO: read these values from the reference image header (possibly using dcraw)
     const WhiteBalance wb = {2.09863, 1, 1, 1.50391};   // r, g0, g1, b
     const BlackPoint bp = 2050;
+    const WhitePoint wp = 15464;
 
-    HDRPlus hdr_plus = HDRPlus(imgs, bp, wb);
+    HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb);
 
     // This image has an RGB interleaved memory layout
     Image<uint8_t> output = hdr_plus.process();

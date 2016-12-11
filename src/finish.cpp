@@ -6,16 +6,19 @@
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-// Should black point be separately defined for RGB (or RGGB) channels?
-Image<uint16_t> black_point(Image<uint16_t> input, const BlackPoint bp) {
+Image<uint16_t> black_white_point(Image<uint16_t> input, const BlackPoint bp, const BlackPoint wp) {
 
-    Func output("black_point_output");
+    Func output("black_white_point_output");
 
     Var x, y;
 
-    output(x, y) = u16_sat(i32(input(x, y)) - bp);
+    float white_factor = 65535.f / (wp - bp);
 
+    output(x, y) = u16_sat((i32(input(x, y)) - bp) * white_factor);
+
+    ///////////////////////////////////////////////////////////////////////////
     // schedule
+    ///////////////////////////////////////////////////////////////////////////
 
     //output.compute_root().parallel(y).vectorize(x, 16);
 
@@ -44,7 +47,9 @@ Image<uint16_t> white_balance(Image<uint16_t> input, const WhiteBalance &wb) {
     output(r.x * 2    , r.y * 2 + 1) = u16_sat(wb.g1 * f32(input(r.x * 2    , r.y * 2 + 1)));   // green 1
     output(r.x * 2 + 1, r.y * 2 + 1) = u16_sat(wb.b  * f32(input(r.x * 2 + 1, r.y * 2 + 1)));   // blue
 
+    ///////////////////////////////////////////////////////////////////////////
     // schedule
+    ///////////////////////////////////////////////////////////////////////////
 
     //output.compute_root().parallel(y).vectorize(x, 16);
 
@@ -111,7 +116,7 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
 
     RDom r0(-2, 5, -2, 5);
 
-    Func input_mirror = BoundaryConditions::mirror_image(input);
+    Func input_mirror = BoundaryConditions::mirror_interior(input);
 
     d0(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f0(r0.x, r0.y)) / f0_sum);
     d1(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f1(r0.x, r0.y)) / f1_sum);
@@ -140,7 +145,9 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
     output(r1.x * 2 + 1, r1.y * 2,     2) = d2(r1.x * 2 + 1, r1.y * 2);         // B at green in R row, B column
     output(r1.x * 2,     r1.y * 2,     2) = d3(r1.x * 2,     r1.y * 2);         // B at red in R row, R column
 
+    ///////////////////////////////////////////////////////////////////////////
     // schedule
+    ///////////////////////////////////////////////////////////////////////////
 
     f0.compute_root().parallel(y).vectorize(x, 16);
     f1.compute_root().parallel(y).vectorize(x, 16);
@@ -161,17 +168,136 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
     return output_img;
 }
 
+Func combine(Func im1, Func im2, Func dist) {
+    Func output("combine_output");
+    Var x, y;
 
-Image<uint8_t> finish(Image<uint16_t> input, const BlackPoint bp, const WhiteBalance &wb) {
+    output(x, y) = im1(x, y);// / 2 + im2(x, y) / 2;
+
+    return output;
+}
+
+Image<uint16_t> tone_map(Image<uint16_t> input) {
+
+    int num_channels = input.channels();
+
+    RDom r(0, num_channels); // RGB channels
+
+    Var x, y;
+
+    Func grayscale("grayscale");
+    grayscale(x, y) = u16(sum(u32(input(x, y, r))) / num_channels);
+
+    Func brighter("brighter_grayscale");
+    brighter(x, y) = u16_sat(2 * u32(grayscale(x, y)));
+
+    Func dist("luma_weight_distribution");
+    dist(x) = 1; // TODO
+
+    Func result = combine(grayscale, brighter, dist);
+
+    Func output("tone_map_output");
+    Var c;
+
+    output(x, y, c) = u16_sat(u32(input(x, y, c)) * u32(result(x, y)) / max(1, grayscale(x, y)));
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    // TODO
+
+    // realize image
+
+    Image<uint16_t> output_img(input.width(), input.height(), num_channels);
+
+    output.realize(output_img);
+
+    return output_img;
+}
+
+Image<uint16_t> srgb(Image<uint16_t> input) {
+
+    assert(input.channels() == 3);
+    
+    Func srgb_matrix("srgb_matrix");
+    Var x, y;
+
+    srgb_matrix(x, y) = 0.f;
+
+    // matrix values taken from dcraw sRGB profile conversion
+
+    srgb_matrix(0, 0) =  1.964399f; srgb_matrix(1, 0) = -1.119710f; srgb_matrix(2, 0) =  0.155311f;
+    srgb_matrix(0, 1) = -0.241156f; srgb_matrix(1, 1) =  1.673722f; srgb_matrix(2, 1) = -0.432566f;
+    srgb_matrix(0, 2) =  0.013887f; srgb_matrix(1, 2) = -0.549820f; srgb_matrix(2, 2) =  1.535933f;
+
+    RDom r(0, 3);
+
+    Func output("srgb_output");
+    Var c;
+
+    output(x, y, c) = u16_sat(sum(srgb_matrix(r, c) * input(x, y, r)));
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    // TODO
+
+    srgb_matrix.compute_root();
+
+    // realize image
+
+    Image<uint16_t> output_img(input.width(), input.height(), 3);
+
+    output.realize(output_img);
+
+    return output_img;
+}
+
+Image<uint16_t> gamma_correct(Image<uint16_t> input) {
+
+    // http://www.color.org/sRGB.xalter
+    // see formulas 1.2a and 1.2b
+
+    Func output("gamma_correct_output");
+    Var x, y, c;
+
+    int cutoff = 200;                   // ceil(0.00304 * UINT16_MAX)
+    float gamma_toe = 12.92;            // 12.92
+    float gamma_pow = 0.416667;         // 1 / 2.4
+    float gamma_fac = 680.552897;       // 1.055 * UINT16_MAX ^ (1 - gamma_pow);
+    float gamma_con = -3604.425;        // -0.055 * UINT16_MAX
+
+    output(x, y, c) = print(u16(select(input(x, y, c) < cutoff,
+                                 gamma_toe * input(x, y, c),
+                                 gamma_fac * pow(input(x, y, c), gamma_pow) + gamma_con)));
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    // TODO
+
+    // realize image
+
+    Image<uint16_t> output_img(input.width(), input.height(), input.channels());
+
+    output.realize(output_img);
+
+    return output_img;
+}
+
+Image<uint8_t> finish(Image<uint16_t> input, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb) {
 
     // 1. Black-level subtraction
-    Image<uint16_t> black_point_output = black_point(input, bp);
+    Image<uint16_t> black_white_point_output = black_white_point(input, bp, wp);
 
     // 2. Lens shading correction
     // LIKELY OMIT
 
     // 3. White balancing
-    Image<uint16_t> white_balance_output = white_balance(black_point_output, wb);
+    Image<uint16_t> white_balance_output = white_balance(black_white_point_output, wb);
 
     // 4. Demosaicking
     Image<uint16_t> demosaic_output = demosaic(white_balance_output);
@@ -180,26 +306,28 @@ Image<uint8_t> finish(Image<uint16_t> input, const BlackPoint bp, const WhiteBal
     // LIKELY OMIT
 
     // 6. Color correction
-    // TODO: add gamma correction here
+    Image<uint16_t> srgb_output = srgb(demosaic_output);
     
     // 7. Dynamic range compression
-    // TODO: tone mapping
+    Image<uint16_t> tone_map_output = tone_map(srgb_output);
 
     // 8. Dehazing
     // 9. Global tone adjustment
+    Image<uint16_t> gamma_correct_output = gamma_correct(tone_map_output);
+
+
     // 10. Chromatic aberration correction
     // 11. Sharpening
     // 12. Hue-specific color adjustments
     // 13. Dithering
     // LIKELY OMIT
 
-
     // The output image must have an RGB interleaved memory layout
     Func output;
     Var x, y, c;
 
-    //int brighten_factor = 80;   // for now, because gamma correction is not implemented
-    output(c, x, y) = u8_sat(demosaic_output(x, y, c));
+    // Convert to 8 bit
+    output(c, x, y) = u8_sat(gamma_correct_output(x, y, c) / 256);
 
     Image<uint8_t> output_img(3, input.width(), input.height());
 

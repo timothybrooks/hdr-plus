@@ -36,11 +36,9 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     Func merge_temporal("merge_temporal");
 
-    // initialize to reference image
-    merge_temporal(ix, iy, tx, ty) = imgs_bound(idx_im(tx, ix), idx_im(ty, iy), 0);         
+    merge_temporal(ix, iy, tx, ty) = imgs_bound(idx_im(tx, ix), idx_im(ty, iy), 0);         // initialize to reference image
 
-    // add alternate images
-    merge_temporal(ix, iy, tx, ty) = u16((u32(merge_temporal(ix, iy, tx, ty))
+    merge_temporal(ix, iy, tx, ty) = u16((u32(merge_temporal(ix, iy, tx, ty))               // add alternate images
                                     + sum(u32(imgs_bound(al_x, al_y, r)))) / num_imgs);
 
     ///////////////////////////////////////////////////////////////////////////
