@@ -15,7 +15,9 @@ using namespace Halide::ConciseCasts;
  */
 Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
-    // TODO: Weiner filtering or something like that...
+    ///////////////////////////////////////////////////////////////////////////
+    // temporal merging
+    ///////////////////////////////////////////////////////////////////////////
 
     int w = imgs.width();
     int h = imgs.height();
@@ -24,25 +26,54 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     // aligned x and y
 
-    Var ix, iy, tx, ty;
+    Var ix, iy, tx, ty, n;
 
-    RDom r(1, num_alts);
-
-    Point offset = P(alignment(tx, ty, r));
-
-    Expr al_x = idx_im(tx, ix) + offset.x;
-    Expr al_y = idx_im(ty, iy) + offset.y;
+    RDom r0(0, 32, 0, 32);
 
     Func imgs_mirror = BoundaryConditions::mirror_interior(imgs);
 
     // temporal merge function using averaging
 
+    Point offset = P(alignment(tx, ty, n));
+
+    Expr al_x = idx_im(tx, r0.x) + offset.x;
+    Expr al_y = idx_im(ty, r0.y) + offset.y;
+
+    Expr ref_val = imgs_mirror(idx_im(tx, r0.x), idx_im(ty, r0.y), 0);
+    Expr alt_val = imgs_mirror(al_x, al_y, n);
+
+    Func scores("merge_scores");
+    float score_const = 10000.f;
+
+    scores(tx, ty, n) = 1.f / max(sum(abs(i32(ref_val) - i32(alt_val))), score_const);
+
+    Func total_scores("total_merge_scores");
+    RDom r1(1, num_alts);
+
+    total_scores(tx, ty) = sum(scores(tx, ty, r1)) + 1.f / score_const;              // additional (1.f / score_const) for reference image
+
+    offset = P(alignment(tx, ty, r1));
+
+    al_x = idx_im(tx, ix) + offset.x;
+    al_y = idx_im(ty, iy) + offset.y;
+
+    ref_val = imgs_mirror(idx_im(tx, ix), idx_im(ty, iy), 0);
+    alt_val = imgs_mirror(al_x, al_y, r1);
+
     Func merge_temporal("merge_temporal");
+    merge_temporal(ix, iy, tx, ty) = sum(scores(tx, ty, r1) * alt_val / total_scores(tx, ty)) + ref_val / (score_const * total_scores(tx, ty));
 
-    merge_temporal(ix, iy, tx, ty) = imgs_mirror(idx_im(tx, ix), idx_im(ty, iy), 0);         // initialize to reference image
+    scores.compute_root()
+          .parallel(ty)
+          .vectorize(tx, 16);
 
-    merge_temporal(ix, iy, tx, ty) = u16((u32(merge_temporal(ix, iy, tx, ty))               // add alternate images
-                                    + sum(u32(imgs_mirror(al_x, al_y, r)))) / num_imgs);
+    total_scores.compute_root()
+          .parallel(ty)
+          .vectorize(tx, 16);
+
+    // merge_temporal.compute_root()
+    //       .parallel(ty)
+    //       .vectorize(tx, 16);
 
     ///////////////////////////////////////////////////////////////////////////
     // spatial merging
@@ -51,7 +82,6 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
     // coefficient (raised cosine window)
 
     Func coef("coef_raised_cosine");
-    Var n;
 
     float pi = 3.141592f;
     coef(n) = 0.5f - 0.5f * cos(2 * pi * (n + 0.5f) / T_SIZE);

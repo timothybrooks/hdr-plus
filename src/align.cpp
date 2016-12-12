@@ -7,10 +7,9 @@ using namespace Halide;
 using namespace Halide::ConciseCasts;
 
 /*
- * Returns an index to the nearest tile in the previous level of the pyramid
- * Would prefer (tile_e - 1) / DOWNSAMPLE_FACTOR, but CPP rounds division to 0
+ * Returns an index to the nearest tile in the previous level of the pyramid.
  */
-inline Halide::Expr prev_tile(Halide::Expr t) { return (t - 1) / DOWNSAMPLE_FACTOR;}
+inline Halide::Expr prev_tile(Halide::Expr t) { return (t - 1) / 4; }
 
 /* 
  * Returns the image index given a tile and the inner index into the tile.

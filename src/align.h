@@ -4,9 +4,6 @@
 #define T_SIZE 32
 #define T_SIZE_2 16
 
-#define SEARCH_RANGE 4
-#define DOWNSAMPLE_FACTOR 4
-
 #include "Halide.h"
 
 /* 
