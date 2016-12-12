@@ -88,11 +88,11 @@ Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max
     Expr ref_val = layer(x0, y0, 0);
     Expr alt_val = layer(x, y, n);
 
-    Expr dist = i64(ref_val) - i64(alt_val);
+    Expr dist = abs(i32(ref_val) - i32(alt_val));
 
     Func scores(layer.name() + "_align_scores");
 
-    scores(xi, yi, tx, ty, n) = sum(dist * dist);
+    scores(xi, yi, tx, ty, n) = sum(dist);
 
     Func min_scores(layer.name() + "_min_align_scores");
 

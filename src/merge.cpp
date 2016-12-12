@@ -45,16 +45,20 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
     Expr alt_val = layer_0(al_x, al_y, n);
 
     Func scores("merge_scores");
-    float score_const = 200.f;
+    
+    int min_dist = 1;
+    int max_dist = 1000;
 
-    Expr dist = i32(ref_val) - i32(alt_val);
+    Expr dist = sum(abs(i32(ref_val) - i32(alt_val))) / 256;
 
-    scores(tx, ty, n) = 1.f / max(sum(abs(dist)), score_const);
+    Expr norm_dist = max(1, dist - min_dist);
+
+    scores(tx, ty, n) = select(norm_dist > (max_dist - min_dist), 0.f, 1.f / norm_dist);
 
     Func total_scores("total_merge_scores");
     RDom r1(1, num_alts);
 
-    total_scores(tx, ty) = sum(scores(tx, ty, r1)) + 1.f / score_const;              // additional (1.f / score_const) for reference image
+    total_scores(tx, ty) = sum(scores(tx, ty, r1)) + 1.f;              // additional (1.f / score_const) for reference image
 
     offset = P(alignment(tx, ty, r1));
 
@@ -65,7 +69,7 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
     alt_val = imgs_mirror(al_x, al_y, r1);
 
     Func merge_temporal("merge_temporal");
-    merge_temporal(ix, iy, tx, ty) = sum(scores(tx, ty, r1) * alt_val / total_scores(tx, ty)) + ref_val / (score_const * total_scores(tx, ty));
+    merge_temporal(ix, iy, tx, ty) = sum(scores(tx, ty, r1) * alt_val / total_scores(tx, ty)) + ref_val / total_scores(tx, ty);
 
     scores.compute_root()
           .parallel(ty)
