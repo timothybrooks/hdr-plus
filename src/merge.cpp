@@ -28,24 +28,28 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     Var ix, iy, tx, ty, n;
 
-    RDom r0(0, 32, 0, 32);
+    RDom r0(0, 16, 0, 16);
 
     Func imgs_mirror = BoundaryConditions::mirror_interior(imgs);
 
+    Func layer_0 = box_down2(imgs_mirror);
+
     // temporal merge function using averaging
 
-    Point offset = P(alignment(tx, ty, n));
+    Point offset = clamp(P(alignment(tx, ty, n)), P(-168, -168), P(168, 168));
 
-    Expr al_x = idx_im(tx, r0.x) + offset.x;
-    Expr al_y = idx_im(ty, r0.y) + offset.y;
+    Expr al_x = idx_layer(tx, r0.x) + offset.x / 2;
+    Expr al_y = idx_layer(ty, r0.y) + offset.y / 2;
 
-    Expr ref_val = imgs_mirror(idx_im(tx, r0.x), idx_im(ty, r0.y), 0);
-    Expr alt_val = imgs_mirror(al_x, al_y, n);
+    Expr ref_val = layer_0(idx_layer(tx, r0.x), idx_layer(ty, r0.y), 0);
+    Expr alt_val = layer_0(al_x, al_y, n);
 
     Func scores("merge_scores");
-    float score_const = 10000.f;
+    float score_const = 200.f;
 
-    scores(tx, ty, n) = 1.f / max(sum(abs(i32(ref_val) - i32(alt_val))), score_const);
+    Expr dist = i32(ref_val) - i32(alt_val);
+
+    scores(tx, ty, n) = 1.f / max(sum(abs(dist)), score_const);
 
     Func total_scores("total_merge_scores");
     RDom r1(1, num_alts);

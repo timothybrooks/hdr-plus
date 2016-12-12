@@ -11,11 +11,6 @@ using namespace Halide::ConciseCasts;
  */
 inline Halide::Expr prev_tile(Halide::Expr t) { return (t - 1) / 4; }
 
-/* 
- * Returns the image index given a tile and the inner index into the tile.
- */
-inline Halide::Expr idx_layer(Halide::Expr t, Halide::Expr i) { return t * T_SIZE_2 / 2 + i; }
-
 Func box_down2(Func input) {
 
     assert(input.dimensions() == 3);
