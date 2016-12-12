@@ -7,6 +7,9 @@ typedef struct Point {
 
     Halide::Expr x, y;
 
+    // Construct default
+    Point() : x(Halide::cast<int16_t>(0)), y(Halide::cast<int16_t>(0)) {}
+
     // Construct from a Tuple
     Point(Halide::Tuple t) : x(Halide::cast<int16_t>(t[0])), y(Halide::cast<int16_t>(t[1])) {}
 

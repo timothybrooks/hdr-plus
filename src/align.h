@@ -40,11 +40,9 @@ inline Halide::Expr idx_im(Halide::Expr t, Halide::Expr i) { return t * T_SIZE_2
  */
 inline Halide::Expr idx_layer(Halide::Expr t, Halide::Expr i) { return t * T_SIZE_2 / 2 + i; }
 
-// I wonder if it would be appropriate to make these images 'const' because they should not be modified...
-// same idea applies to the merge and finish components
-
-Halide::Func box_down2(Halide::Func input);
-
-Halide::Func align(Halide::Image<uint16_t> imgs);
+/*
+ *
+ */
+Halide::Func align(const Halide::Image<uint16_t> imgs);
 
 #endif
