@@ -46,12 +46,13 @@ Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
 
     Func scores("merge_scores");
     
-    int min_dist = 1;
-    int max_dist = 1000;
+    float rate = 4.f;
+    int min_dist = 8;
+    int max_dist = 300;
 
     Expr dist = sum(abs(i32(ref_val) - i32(alt_val))) / 256;
 
-    Expr norm_dist = max(1, dist - min_dist);
+    Expr norm_dist = max(1, i32(dist) / rate - min_dist / rate);
 
     scores(tx, ty, n) = select(norm_dist > (max_dist - min_dist), 0.f, 1.f / norm_dist);
 
