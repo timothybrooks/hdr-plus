@@ -292,12 +292,15 @@ Func tone_map(Func input, int width, int height, int gain) {
 
     // reintroduce image color
 
-    output(x,y,c) = u16_sat(u32(input(x, y, c)) * u32(linear_combine_output(x, y)) / max(1, grayscale(x, y)));
+    output(x, y, c) = u16_sat(u32(input(x, y, c)) * u32(linear_combine_output(x, y)) / max(1, grayscale(x, y)));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
     
+    grayscale.compute_root().parallel(y).vectorize(x, 16);
+    
+    normal_dist.compute_root().vectorize(v, 16);
 
     return output;
 }
@@ -312,10 +315,6 @@ Func chroma_denoise(Func input, int width, int height) {
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
-
-    grayscale.compute_root().parallel(y).vectorize(x, 16);
-    
-    normal_dist.compute_root().vectorize(v, 16);
 
     return output;
 }
