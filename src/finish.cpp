@@ -412,17 +412,6 @@ Func contrast(Func input, float scale) {
 
     Var x, y, c;
 
-    /*
-    float scale = 1.f;
-
-    float factor = 3.141592f / (65535.f * scale);
-    float constant = 3.141592f / (2.f * scale);
-
-    float min_val = sin(constant);
-    float max_val = sin(factor * 65535.f - constant);
-
-    output(x, y, c) = u16_sat(65535 * (sin(factor * f32(input(x, y, c)) - constant) - min_val) / max_val);
-    */
     float constant = 3.141592f / (2.f * scale);
     float x_factor = 3.141592f / (scale * 65535.f);
     float sin_const = sin(constant);
@@ -434,6 +423,22 @@ Func contrast(Func input, float scale) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
+Func sharpen(Func input) {
+    Func output("sharpen_output");
+
+    Var x, y, c;
+
+    output(x, y, c) = input(x, y, c);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+    
     output.compute_root().parallel(y).vectorize(x, 16);
 
     return output;
@@ -485,8 +490,8 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func contrast_output = contrast(gamma_correct_output, 1.f);
 
     // 9. Sharpening
-    // TODO
+    Func sharpen_output = sharpen(contrast_output);
 
     // 10. Convert to 8 bit interleaved image
-    return u8bit_interleaved(contrast_output);
+    return u8bit_interleaved(sharpen_output);
 }
