@@ -5,9 +5,9 @@
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-Func box_down2(Func input) {
+Func box_down2(Func input, std::string name) {
 
-    Func output(input.name() + "_box_down2");
+    Func output(name);
     
     Var x, y, n;
     RDom r(0, 2, 0, 2);
@@ -20,15 +20,15 @@ Func box_down2(Func input) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    output.compute_root().parallel(n).parallel(y).vectorize(x, 16);
+    output.compute_root().parallel(y).vectorize(x, 16);
 
     return output;
 }
 
-Func gauss_down4(Func input) {
+Func gauss_down4(Func input, std::string name) {
 
-    Func output(input.name() + "_gauss_down4");
-    Func k("gauss_down4_filter");
+    Func output(name);
+    Func k(name + "_filter");
 
     Var x, y, n;
     RDom r(-2, 5, -2, 5);
@@ -53,7 +53,7 @@ Func gauss_down4(Func input) {
 
     k.compute_root().parallel(y).parallel(x);
 
-    output.compute_root().parallel(n).parallel(y).vectorize(x, 16);
+    output.compute_root().parallel(y).vectorize(x, 16);
 
     return output;
 }

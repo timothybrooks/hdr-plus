@@ -18,13 +18,12 @@ inline Halide::Expr prev_tile(Halide::Expr t) { return (t - 1) / 4; }
  */
 Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max) {
 
-    Func scores(layer.name() + "_align_scores");
-    Func min_scores(layer.name() + "_min_align_scores");
+    Func scores(layer.name() + "_scores");
     Func alignment(layer.name() + "_alignment");
 
     Var xi, yi, tx, ty, n;
-    RDom r0(0, 16, 0, 16);
-    RDom r1(-4, 9, -4, 9);
+    RDom r0(0, 16, 0, 16);              // reduction over pixels in tile
+    RDom r1(-4, 8, -4, 8);              // reduction over search region; extent clipped to 8 for SIMD vectorization
 
     // offset from the alignment of the previous layer, scaled to this layer
 
@@ -49,27 +48,17 @@ Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max
 
     scores(xi, yi, tx, ty, n) = sum(dist);
 
-    // minimum score in each tile
-
-    min_scores(tx, ty, n) = minimum(scores(r1.x, r1.y, tx, ty, n));
-
     // alignment offset for each tile (offset where score is minimum)
 
-    alignment(tx, ty, n) = P(0, 0);
-
-    alignment(tx, ty, n) = select(scores(r1.x, r1.y, tx, ty, n) == min_scores(tx, ty, n),
-                                  P(r1.x, r1.y) + prev_offset,
-                                  alignment(tx, ty, n));
+    alignment(tx, ty, n) = P(argmin(scores(r1.x, r1.y, tx, ty, n))) + prev_offset;
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    scores.compute_root().parallel(n).parallel(ty).vectorize(tx, 16);
+    scores.compute_root().parallel(ty).vectorize(xi, 8);
 
-    min_scores.compute_root().parallel(n).parallel(ty).vectorize(tx, 16);
-
-    alignment.compute_root().parallel(n).parallel(ty).vectorize(tx, 16);
+    alignment.compute_root().parallel(ty).vectorize(tx, 16);
 
     return alignment;
 }
@@ -90,9 +79,9 @@ Func align(const Image<uint16_t> imgs) {
 
     // downsampled layers for alignment
 
-    Func layer_0 = box_down2(imgs_mirror);
-    Func layer_1 = gauss_down4(layer_0);
-    Func layer_2 = gauss_down4(layer_1);
+    Func layer_0 = box_down2(imgs_mirror, "layer_0");
+    Func layer_1 = gauss_down4(layer_0, "layer_1");
+    Func layer_2 = gauss_down4(layer_1, "layer_2");
 
     // min and max search regions
 
@@ -129,9 +118,9 @@ Func align(const Image<uint16_t> imgs) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    alignment_3.compute_root().parallel(n).parallel(ty).vectorize(tx, 16);
+    alignment_3.compute_root().parallel(ty).vectorize(tx, 16);
 
-    alignment.compute_root().parallel(n).parallel(ty).vectorize(tx, 16);
+    alignment.compute_root().parallel(ty).vectorize(tx, 16);
     
     return alignment;
 }
