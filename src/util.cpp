@@ -58,7 +58,6 @@ Func gauss_down4(Func input, std::string name) {
     return output;
 }
 
-//takes in a 2D image
 Func gauss_7x7(Func input, bool isFloat) {
     Func output(input.name() + "_gauss_7x7");
     Func k("gauss_7x7_filter");
@@ -92,10 +91,6 @@ Func gauss_7x7(Func input, bool isFloat) {
     return output;
 }
 
-/*
- * Finds normalized weights for combining two images based on a distribution
- * function
- */
 Func get_weights(Func im1, Func im2, Func dist) {
     Func output("weights_1");
     Var x, y;
@@ -105,9 +100,6 @@ Func get_weights(Func im1, Func im2, Func dist) {
     return output;
 }
 
-/*
- * Inverts a mask of numbers in [0-1]
- */
 Func invert_weights(Func weights) {
     Func output("weights_2");
     Var x, y;
@@ -115,12 +107,63 @@ Func invert_weights(Func weights) {
     return output;
 }
 
-/*
- * Utility to take the difference between two functions
- */
 Func diff(Func im1, Func im2) {
     Func output(im1.name() + "_laplace");
     Var x, y;
     output(x,y) = i32(im1(x,y)) - i32(im2(x,y));
+    return output;
+}
+
+Func rgb_to_yuv(Func input) {
+    Func output("yuv_from_rgb_output");
+    Var x, y, c;
+    Expr r = input(x, y, 0);
+    Expr g = input(x, y, 1);
+    Expr b = input(x, y, 2);
+    output(x, y, c) = f32(0);
+    output(x, y, 0) =   .299f    * r + .587f    * g + .114f    * b; //Y
+    output(x, y, 1) = - .168935f * r - .331655f * g + .500590f * b; //U
+    output(x, y, 2) =   .499813f * r - .418531f * g - .081282f * b; //V
+    
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    //TODO
+
+    return output;
+}
+
+Func yuv_to_rgb(Func input) {
+    Func output("rgb_from_yuv_output");
+    Var x, y, c;
+    Expr Y = input(x, y, 0);
+    Expr U = input(x, y, 1);
+    Expr V = input(x, y, 2);
+    output(x, y, c) = u16(0);
+    output(x, y, 0) = u16_sat(Y + 1.403f * V            ); //r
+    output(x, y, 1) = u16_sat(Y -  .344f * U - .714f * V); //g
+    output(x, y, 2) = u16_sat(Y + 1.770f * U            ); //b
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    //TODO
+
+    return output;
+}
+
+Func median_filter_3x3(Func input) {
+    Func output(input.name() + "median_filtered");
+    Var x, y, c;
+    output(x, y, c) = input(x, y, c);
+    
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    //TODO
+
     return output;
 }

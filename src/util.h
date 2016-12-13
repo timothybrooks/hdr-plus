@@ -36,11 +36,18 @@ Halide::Func invert_weights(Halide::Func weights);
 Halide::Func diff(Halide::Func im1, Halide::Func im2);
 
 /*
- * Converts RGB linear image to YUV image
+ * Converts u16 RGB linear image to f32 YUV image
  */
+ Halide::Func rgb_to_yuv(Halide::Func input);
 
 /*
- * Converts YUV image to RGB linear image
+ * Converts f32 YUV image to u16 RGB linear image
  */
+ Halide::Func yuv_to_rgb(Halide::Func input);
+
+/*
+ * Runs a 3x3 chroma median filter an image (only affect U and V channels)
+ */
+Halide::Func median_filter_3x3(Halide::Func input);
 
 #endif

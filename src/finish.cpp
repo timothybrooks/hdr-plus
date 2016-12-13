@@ -314,7 +314,6 @@ Func tone_map(Func input, int width, int height) {
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
-
     
 
     return output;
@@ -323,7 +322,16 @@ Func tone_map(Func input, int width, int height) {
 Func chroma_denoise(Func input, int width, int height) {
     Func output("chroma_denoise_output");
     Var x, y, c;
-    output(x, y, c) = input(x, y, c);
+    Func yuv_input = rgb_to_yuv(input);
+    Func denoised = median_filter_3x3(yuv_input);
+    output = yuv_to_rgb(denoised);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    //TODO
+
     return output;
 }
 
@@ -437,5 +445,5 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     // TODO
 
     // 10. Convert to 8 bit interleaved image
-    return u8bit_interleaved(gamma_correct_output);    
+    return u8bit_interleaved(gamma_correct_output);
 }
