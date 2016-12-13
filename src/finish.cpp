@@ -226,37 +226,18 @@ Func gamma_inverse_single_channel(Func input) {
     return output;
 }
 
-Func get_weights(Func im1, Func im2, Func dist) {
-    Func output("weights_1");
-    Var x, y;
-    Expr g1 = f64(dist(im1(x,y)));
-    Expr g2 = f64(dist(im2(x,y)));
-    output(x, y) = g1 / (g1 + g2);
-    return output;
-}
-
-Func invert_weights(Func weights) {
-    Func output("weights_2");
-    Var x, y;
-    output(x,y) = 1.f - weights(x,y);
-    return output;
-}
-
-Func diff(Func im, Func im2) {
-    Func output(im.name() + "_laplace");
-    Var x, y;
-    output(x,y) = i32(im(x,y)) - i32(im2(x,y));
-    return output;
-}
-
 //exposure fusion as described by Mertens et al. Modified to only use intensity
 //http://ntp-0.cs.ucl.ac.uk/staff/j.kautz/publications/exposure_fusion.pdf
 Func combine(Func im1, Func im2, Func dist) {
-    Var x, y;
-
-    Func result("combine_intermediate_output");
+    Func accumulator("combine_accumulator");
+    Func output("combine_output");
     
-    result(x,y) = i32(0);
+    Var x, y;
+    
+    accumulator(x,y) = i32(0);
+
+    //Initialize gaussian/laplacian pyramid layers
+    int numLevels = 5;
     Func unblurred1 = im1;
     Func unblurred2 = im2;
     Func blurred1 = gauss_7x7(im1, false);
@@ -265,23 +246,36 @@ Func combine(Func im1, Func im2, Func dist) {
     Func laplace2 = diff(unblurred2, blurred2);
     Func mask1 = get_weights(im1, im2, dist);
     Func mask2 = invert_weights(mask1);
-    for (int i = 0; i < 5; i++) {
-        result(x, y) += i32(laplace1(x,y) * mask1(x,y));
+
+    //At each level of the laplacian pyramid, weight that frequency band
+    //with a blurred version of the initial weights
+    for (int level = 0; level < numLevels; level++) {
+        //add current frequency band
+        accumulator(x, y) += i32(laplace1(x,y) * mask1(x,y));
+        accumulator(x, y) += i32(laplace2(x,y) * mask2(x,y));
+        //save current gauss level to produce next laplace level
         unblurred1 = blurred1;
-        blurred1 = gauss_7x7(blurred1, false);
-        laplace1 = diff(unblurred1, blurred1);
-        mask1 = gauss_7x7(mask1, true);
-        result(x, y) += i32(laplace2(x,y) * mask2(x,y));
         unblurred2 = blurred2;
+        //next gauss level
+        blurred1 = gauss_7x7(blurred1, false);
         blurred2 = gauss_7x7(blurred2, false);
+        //next laplace level
+        laplace1 = diff(unblurred1, blurred1);
         laplace2 = diff(unblurred2, blurred2);
+        //next gauss level of mask
+        mask1 = gauss_7x7(mask1, true);
         mask2 = gauss_7x7(mask2, true);
     }
-    result(x, y) += i32(blurred1(x,y) * mask1(x, y));
-    result(x, y) += i32(blurred2(x,y) * mask2(x, y));
 
-    Func output("combine_output");
-    output(x,y) = u16_sat(result(x,y));
+    //Lowest frequency band
+    accumulator(x, y) += i32(blurred1(x,y) * mask1(x, y));
+    accumulator(x, y) += i32(blurred2(x,y) * mask2(x, y));
+    output(x,y) = u16_sat(accumulator(x,y));
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
     return output;
 }
 
@@ -296,7 +290,7 @@ Func tone_map(Func input, int width, int height) {
     grayscale(x, y) = u16(sum(u32(input_repeat(x, y, r))) / num_channels);
 
     Func brighter("brighter_grayscale");
-    brighter(x, y) = u16_sat(3 * u32(grayscale(x, y)));
+    brighter(x, y) = u16_sat(4 * u32(grayscale(x, y)));
 
     Func gamma_grayscale = gamma_single_channel(grayscale);
     Func gamma_brighter = gamma_single_channel(brighter);
@@ -310,7 +304,6 @@ Func tone_map(Func input, int width, int height) {
 
     Func output("tone_map_output");
     Var c;
-    // output(x,y,c) = u16_sat(result(x,y) + 256);
     output(x,y,c) = u16_sat(u32(input(x, y, c)) * u32(result(x, y)) / max(1, grayscale(x, y)));
 
     ///////////////////////////////////////////////////////////////////////////
