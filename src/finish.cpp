@@ -46,6 +46,11 @@ Func white_balance(Func input, int width, int height, const WhiteBalance &wb) {
 
     output.compute_root().parallel(y).vectorize(x, 16);
 
+    output.update(0).parallel(r.y);
+    output.update(1).parallel(r.y);
+    output.update(2).parallel(r.y);
+    output.update(3).parallel(r.y);
+
     return output;
 }
 
@@ -152,6 +157,15 @@ Func demosaic(Func input, int width, int height) {
 
     output.compute_root().parallel(y).vectorize(x, 16);
 
+    output.update(0).parallel(r1.y);
+    output.update(1).parallel(r1.y);
+    output.update(2).parallel(r1.y);
+    output.update(3).parallel(r1.y);
+    output.update(4).parallel(r1.y);
+    output.update(5).parallel(r1.y);
+    output.update(6).parallel(r1.y);
+    output.update(7).parallel(r1.y);
+
     return output;
 }
 
@@ -216,7 +230,7 @@ Func srgb(Func input) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    srgb_matrix.compute_root();
+    srgb_matrix.compute_root().parallel(y).vectorize(x, 16);;
 
     output.compute_root().parallel(y).vectorize(x, 16);
 
@@ -253,55 +267,70 @@ Func gamma_correct(Func input) {
     return output;
 }
 
+Image<uint8_t> u8bit_interleaved(Func input, int width, int height) {
+
+    Func output("8bit_interleaved_output");
+
+    Var c, x, y;
+
+    // Convert to 8 bit
+
+    output(c, x, y) = u8_sat(input(x, y, c) / 256);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // realize image
+    ///////////////////////////////////////////////////////////////////////////
+
+    Image<uint8_t> output_img(3, width, height);
+
+    output.realize(output_img);
+
+    // transpose to account for interleaved layout
+
+    output_img.transpose(0, 1);
+    output_img.transpose(1, 2);
+
+    return output_img;
+}
+
 Image<uint8_t> finish(Image<uint16_t> input, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb) {
 
     int width = input.width();
     int height = input.height();
 
-    // 1. Black-level subtraction
+    // 1. Black-level subtraction and white-level scaling
     Func black_white_point_output = black_white_point(Func(input), bp, wp);
 
-    // 2. Lens shading correction
-    // LIKELY OMIT
-
-    // 3. White balancing
+    // 2. White balancing
     Func white_balance_output = white_balance(black_white_point_output, width, height, wb);
 
-    // 4. Demosaicking
+    // 3. Demosaicking
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
-    // 5. Chroma denoising
-    // LIKELY OMIT
+    // 4. Chroma denoising
+    // TODO
 
-    // 6. Color correction
+    // 5. sRGB color correction
     Func srgb_output = srgb(demosaic_output);
     
-    // 7. Dynamic range compression
+    // 6. Tone mapping
     Func tone_map_output = tone_map(srgb_output, width, height);
 
-    // 8. Dehazing
-    // 9. Global tone adjustment
+    // 7. Gamma correction
     Func gamma_correct_output = gamma_correct(tone_map_output);
 
+    // 8. Global contrast increase
+    // TODO
 
-    // 10. Chromatic aberration correction
-    // 11. Sharpening
-    // 12. Hue-specific color adjustments
-    // 13. Dithering
-    // LIKELY OMIT
+    // 9. Sharpening
+    // TODO
 
-    // The output image must have an RGB interleaved memory layout
-    Func output;
-    Var x, y, c;
-
-    // Convert to 8 bit
-    output(c, x, y) = u8_sat(gamma_correct_output(x, y, c) / 256);
-
-    Image<uint8_t> output_img(3, input.width(), input.height());
-
-    output.realize(output_img);
-    output_img.transpose(0, 1);
-    output_img.transpose(1, 2);
-
-    return output_img;
+    // 10. Convert to 8 bit interleaved image
+    return u8bit_interleaved(gamma_correct_output, width, height);    
 }
