@@ -91,3 +91,36 @@ Func gauss_7x7(Func input, bool isFloat) {
 
     return output;
 }
+
+/*
+ * Finds normalized weights for combining two images based on a distribution
+ * function
+ */
+Func get_weights(Func im1, Func im2, Func dist) {
+    Func output("weights_1");
+    Var x, y;
+    Expr g1 = f64(dist(im1(x,y)));
+    Expr g2 = f64(dist(im2(x,y)));
+    output(x, y) = g1 / (g1 + g2);
+    return output;
+}
+
+/*
+ * Inverts a mask of numbers in [0-1]
+ */
+Func invert_weights(Func weights) {
+    Func output("weights_2");
+    Var x, y;
+    output(x,y) = 1.f - weights(x,y);
+    return output;
+}
+
+/*
+ * Utility to take the difference between two functions
+ */
+Func diff(Func im1, Func im2) {
+    Func output(im1.name() + "_laplace");
+    Var x, y;
+    output(x,y) = i32(im1(x,y)) - i32(im2(x,y));
+    return output;
+}
