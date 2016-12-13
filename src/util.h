@@ -14,6 +14,12 @@ Halide::Func box_down2(Halide::Func input, std::string name);
 Halide::Func gauss_down4(Halide::Func input, std::string name);
 
 /*
+ * Blurs its input with a 5x5 gaussian kernel. Requires input
+ * to handle edge cases.
+ */
+Halide::Func gauss_5x5(Halide::Func input, std::string name);
+
+/*
  * Blurs its input with a 7x7 gaussian kernel. Requires input
  * to handle edge cases.
  */
@@ -37,10 +43,5 @@ Halide::Func gamma_inverse(Halide::Func input);
  * Converts f32 YUV image to u16 RGB linear image
  */
  Halide::Func yuv_to_rgb(Halide::Func input);
-
-/*
- * Runs a 3x3 chroma median filter an image (only affect U and V channels)
- */
-Halide::Image<float> bilateral_filter(Halide::Image<float> input, int width, int height);
 
 #endif

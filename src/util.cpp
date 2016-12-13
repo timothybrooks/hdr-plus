@@ -60,7 +60,51 @@ Func gauss_down4(Func input, std::string name) {
     return output;
 }
 
-//takes in a 2D image
+Func gauss_5x5(Func input, std::string name) {
+
+    Func output(name);
+    Func k(name + "_filter");
+
+    Var x, y, c;
+
+    //gaussian kernel
+
+    k(x,y) = f32(0.f);
+
+    k(-2, -2) = 0.003765f; k(-1, -2) = 0.015019f; k(0, -2) = 0.023792f; k( 1, -2) = 0.015019f; k( 2, -2) = 0.003765f;
+    k(-2, -1) = 0.015019f; k(-1, -1) = 0.059912f; k(0, -1) = 0.094907f; k( 1, -1) = 0.059912f; k( 2, -1) = 0.015019f;
+    k(-2,  0) = 0.023792f; k(-1,  0) = 0.094907f; k(0,  0) = 0.150342f; k( 1,  0) = 0.094907f; k( 2,  0) = 0.023792f;
+    k(-2,  1) = 0.015019f; k(-1,  1) = 0.059912f; k(0,  1) = 0.094907f; k( 1,  1) = 0.059912f; k( 2,  1) = 0.015019f;
+    k(-2,  2) = 0.003765f; k(-1,  2) = 0.015019f; k(0,  2) = 0.023792f; k( 1,  2) = 0.015019f; k( 2,  2) = 0.003765f;
+
+    RDom r(-2, 5, -2, 5);
+    Expr val;
+
+    if (input.dimensions() == 2) {
+        val = sum(input(x + r.x, y + r.y) * k(r.x, r.y));
+    } else {
+        val = sum(input(x + r.x, y + r.y, c) * k(r.x, r.y));
+    }
+
+    if (input.output_types()[0] == UInt(16)) val = u16(val);
+
+    if (input.dimensions() == 2) {
+        output(x, y) = val;
+    } else {
+        output (x, y, c) = val;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    k.compute_root().parallel(y).parallel(x);
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
 Func gauss_7x7(Func input, std::string name) {
 
     Func output(name);
