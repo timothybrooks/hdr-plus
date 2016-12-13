@@ -6,12 +6,12 @@
 /*
  * Averages and downsamples input by 2
  */
-Halide::Func box_down2(Halide::Func input);
+Halide::Func box_down2(Halide::Func input, std::string name);
 
 /*
  * Blurs and downsamples input by 4
  */
-Halide::Func gauss_down4(Halide::Func input);
+Halide::Func gauss_down4(Halide::Func input, std::string name);
 
 /*
  * Blurs its input with a 7x7 gaussian kernel. Requires input

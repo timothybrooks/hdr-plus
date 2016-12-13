@@ -27,7 +27,7 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
 
     // downsampled layer for computing L1 distances
 
-    Func layer_0 = box_down2(imgs_mirror);
+    Func layer = box_down2(imgs_mirror, "merge_layer");
 
     // alignment offset, indicies and pixel value expressions; used twice in different reductions
 
@@ -41,8 +41,8 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
     al_x = idx_layer(tx, r0.x) + offset.x / 2;
     al_y = idx_layer(ty, r0.y) + offset.y / 2;
 
-    ref_val = layer_0(idx_layer(tx, r0.x), idx_layer(ty, r0.y), 0);
-    alt_val = layer_0(al_x, al_y, n);
+    ref_val = layer(idx_layer(tx, r0.x), idx_layer(ty, r0.y), 0);
+    alt_val = layer(al_x, al_y, n);
 
     // constants for determining strength and robustness of temporal merge
     
@@ -82,11 +82,11 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    weight.compute_root().parallel(n).parallel(ty).vectorize(tx, 16);
+    weight.compute_root().parallel(ty).vectorize(tx, 16);
 
     total_weight.compute_root().parallel(ty).vectorize(tx, 16);
 
-    output.compute_root().parallel(ty).parallel(tx).vectorize(ix, 16);
+    output.compute_root().parallel(ty).vectorize(ix, 32);
 
     return output;
 }
@@ -131,9 +131,9 @@ Func merge_spatial(Func input) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    weight.compute_root().vectorize(v, 16);
+    weight.compute_root().vectorize(v, 32);
 
-    output.compute_root().parallel(y).vectorize(x, 16);
+    output.compute_root().parallel(y).vectorize(x, 32);
 
     return output;
 }
@@ -141,18 +141,9 @@ Func merge_spatial(Func input) {
 /*
  *
  */
-Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
+Func merge(Image<uint16_t> imgs, Func alignment) {
 
     Func merge_temporal_output = merge_temporal(imgs, alignment);
 
-    Func merge_spatial_output = merge_spatial(merge_temporal_output);
-
-    ///////////////////////////////////////////////////////////////////////////
-    // realize image
-    ///////////////////////////////////////////////////////////////////////////
-
-    Image<uint16_t> output_img(imgs.width(), imgs.height());
-    merge_spatial_output.realize(output_img);
-    
-    return output_img;
+    return merge_spatial(merge_temporal_output);
 }

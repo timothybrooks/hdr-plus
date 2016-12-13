@@ -13,6 +13,6 @@ struct WhiteBalance {
 typedef uint16_t BlackPoint;
 typedef uint16_t WhitePoint;
 
-Halide::Image<uint8_t> finish(Halide::Image<uint16_t> input, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb);
+Halide::Func finish(Halide::Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb);
 
 #endif
