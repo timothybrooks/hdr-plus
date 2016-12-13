@@ -35,4 +35,12 @@ Halide::Func invert_weights(Halide::Func weights);
  */
 Halide::Func diff(Halide::Func im1, Halide::Func im2);
 
+/*
+ * Converts RGB linear image to YUV image
+ */
+
+/*
+ * Converts YUV image to RGB linear image
+ */
+
 #endif

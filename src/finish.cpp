@@ -275,7 +275,12 @@ Func combine(Func im1, Func im2, Func dist) {
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
-
+    accumulator.vectorize(x,16).parallel(y);
+    accumulator.update(0).vectorize(x,16).parallel(y);
+    accumulator.update(1).vectorize(x,16).parallel(y);
+    accumulator.update(2).vectorize(x,16).parallel(y);
+    accumulator.update(3).vectorize(x,16).parallel(y);
+    accumulator.compute_root();
     return output;
 }
 
@@ -310,8 +315,15 @@ Func tone_map(Func input, int width, int height) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    //TODO
+    
 
+    return output;
+}
+
+Func chroma_denoise(Func input, int width, int height) {
+    Func output("chroma_denoise_output");
+    Var x, y, c;
+    output(x, y, c) = input(x, y, c);
     return output;
 }
 
@@ -423,10 +435,10 @@ Image<uint8_t> finish(Image<uint16_t> input, const BlackPoint bp, const WhitePoi
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    // TODO
+    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height);
 
     // 5. sRGB color correction
-    Func srgb_output = srgb(demosaic_output);
+    Func srgb_output = srgb(chroma_denoised_output);
     
     // 6. Tone mapping
     Func tone_map_output = tone_map(srgb_output, width, height);
