@@ -193,8 +193,8 @@ Func combine(Func im1, Func im2, int width, int height, Func dist) {
 
     // initial masks computed from input distribution function
 
-    Expr weight1 = f32(dist(im1(x,y)));
-    Expr weight2 = f32(dist(im2(x,y)));
+    Expr weight1 = f32(dist(im1_mirror(x,y)));
+    Expr weight2 = f32(dist(im2_mirror(x,y)));
 
     init_mask1(x, y) = weight1 / (weight1 + weight2);
     init_mask2(x, y) = 1.f - init_mask1(x, y);
@@ -305,21 +305,76 @@ Func tone_map(Func input, int width, int height, int gain) {
     return output;
 }
 
-Func chroma_denoise(Func input, int width, int height) {
-    Func output("chroma_denoise_output");
-    Var x, y, c;
-    Func yuv_input = rgb_to_yuv(input);
-    Image<float> temp1 = yuv_input.realize(width,height,3);
-    Image<float> denoised = bilateral_filter(temp1, width, height);
-    Func temp2;
-    temp2(x,y,c) = denoised(x,y,c);
-    output = yuv_to_rgb(temp2);
+Func bilateral_filter(Func input, int width, int height) {
+    
+    Func k("gauss_kernel");
+    Func weights("bilateral_weights");
+    Func total_weights("bilateral_total_weights");
+    Func bilateral("bilateral");
+    Func output("bilateral_filter_output");
+
+    Var x, y, dx, dy, c;
+
+    RDom r(-2, 5, -2, 5);
+
+    // gaussian kernel
+
+    k(dx, dy) = 0;
+
+    k(-2,-2) = 2; k(-1,-2) =  4; k(0,-2) =  5; k(1,-2) =  4; k(2,-2) = 2;
+    k(-2,-1) = 4; k(-1,-1) =  9; k(0,-1) = 12; k(1,-1) =  9; k(2,-1) = 4;
+    k(-2, 0) = 5; k(-1, 0) = 12; k(0, 0) = 15; k(1, 0) = 12; k(2, 0) = 5;
+    k(-2, 1) = 4; k(-1, 1) =  9; k(0, 1) = 12; k(1, 1) =  9; k(2, 1) = 4;
+    k(-2, 2) = 2; k(-1, 2) =  4; k(0, 2) =  5; k(1, 2) =  4; k(2, 2) = 2;
+
+    Func input_mirror = BoundaryConditions::mirror_interior(input, 0, width, 0, height);
+
+    Expr dist = f32(i32(input_mirror(x, y, c)) - i32(input_mirror(x + dx, y + dy, c))) / 65535.f;
+
+    Expr score = 1.f - dist * dist;
+
+    weights(dx, dy, x, y, c) = k(dx, dy) * score;
+
+    total_weights(x, y, c) = sum(weights(r.x, r.y, x, y, c));
+
+    bilateral(x, y, c) = sum(input_mirror(x + r.x, y + r.y, c) * weights(r.x, r.y, x, y, c)) / total_weights(x, y, c);
+
+    output(x, y, c) = input(x, y, c);
+    output(x, y, 1) = bilateral(x, y, 1);
+    output(x, y, 2) = bilateral(x, y, 2);
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
+    k.parallel(dy).parallel(dx).compute_root();
+
+
+    weights.compute_at(output, y).vectorize(x, 16);
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    output.update(0).parallel(y).vectorize(x, 16);
+    output.update(1).parallel(y).vectorize(x, 16);
+
     return output;
+}
+
+Func chroma_denoise(Func input, int width, int height) {
+    
+    Func output("chroma_denoise_output");
+    
+    Func yuv_input = rgb_to_yuv(input);
+
+    Func pass_0 = bilateral_filter(yuv_input, width, height);
+    Func pass_1 = bilateral_filter(pass_0, width, height);
+    Func pass_2 = bilateral_filter(pass_1, width, height);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    return yuv_to_rgb(pass_1);
 }
 
 Func srgb(Func input) {
@@ -382,10 +437,10 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    //Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height);
+    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height);
 
     // 5. sRGB color correction
-    Func srgb_output = srgb(demosaic_output);
+    Func srgb_output = srgb(chroma_denoised_output);
     
     // 6. Tone mapping
     Func tone_map_output = tone_map(srgb_output, width, height, 4);
