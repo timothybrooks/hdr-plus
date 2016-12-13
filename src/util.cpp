@@ -59,15 +59,17 @@ Func gauss_down4(Func input, std::string name) {
 }
 
 //takes in a 2D image
-Func gauss_7x7(Func input, bool isFloat) {
-    Func output(input.name() + "_gauss_7x7");
-    Func k("gauss_7x7_filter");
+Func gauss_7x7(Func input, std::string name) {
+
+    Func output(name);
+    Func k(name + "_filter");
 
     Var x, y;
 
     //gaussian kernel
 
     k(x,y) = f32(0.f);
+
     k(-3, -3) = 0.007507f; k(-2, -3) = 0.011815f; k(-1, -3) = 0.015509f; k(0, -3) = 0.016982f; k(1, -3) = 0.015509f; k(2, -3) = 0.011815f; k(3, -3) = 0.007507f;
     k(-3, -2) = 0.011815f; k(-2, -2) = 0.018594f; k(-1, -2) = 0.024408f; k(0, -2) = 0.026726f; k(1, -2) = 0.024408f; k(2, -2) = 0.018594f; k(3, -2) = 0.011815f;
     k(-3, -1) = 0.015509f; k(-2, -1) = 0.024408f; k(-1, -1) = 0.032041f; k(0, -1) = 0.035083f; k(1, -1) = 0.032041f; k(2, -1) = 0.024408f; k(3, -1) = 0.015509f;
@@ -75,52 +77,108 @@ Func gauss_7x7(Func input, bool isFloat) {
     k(-3,  1) = 0.015509f; k(-2,  1) = 0.024408f; k(-1,  1) = 0.032041f; k(0,  1) = 0.035083f; k(1,  1) = 0.032041f; k(2,  1) = 0.024408f; k(3,  1) = 0.015509f;
     k(-3,  2) = 0.011815f; k(-2,  2) = 0.018594f; k(-1,  2) = 0.024408f; k(0,  2) = 0.026726f; k(1,  2) = 0.024408f; k(2,  2) = 0.018594f; k(3,  2) = 0.011815f;
     k(-3,  3) = 0.007507f; k(-2,  3) = 0.011815f; k(-1,  3) = 0.015509f; k(0,  3) = 0.016982f; k(1,  3) = 0.015509f; k(2,  3) = 0.011815f; k(3,  3) = 0.007507f;
+
     RDom r(-3, 7, -3, 7);
-    if (isFloat) {
-        output(x, y) = sum(input(x + r.x, y + r.y) * k(r.x, r.y));
-    } else {
-        output(x, y) = i32(sum(input(x + r.x, y + r.y) * k(r.x, r.y)));
-    }
+
+    Expr val = sum(input(x + r.x, y + r.y) * k(r.x, r.y));
+
+    if (input.output_types()[0] == UInt(16)) val = u16(val);
+
+    output(x, y) = val;
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
     k.compute_root().parallel(y).parallel(x);
+
     output.compute_root().parallel(y).vectorize(x, 16);
 
     return output;
 }
 
 /*
- * Finds normalized weights for combining two images based on a distribution
- * function
+ * Computes difference between two functions
  */
-Func get_weights(Func im1, Func im2, Func dist) {
-    Func output("weights_1");
-    Var x, y;
-    Expr g1 = f64(dist(im1(x,y)));
-    Expr g2 = f64(dist(im2(x,y)));
-    output(x, y) = g1 / (g1 + g2);
-    return output;
-}
+Func diff(Func im1, Func im2, std::string name) {
 
-/*
- * Inverts a mask of numbers in [0-1]
- */
-Func invert_weights(Func weights) {
-    Func output("weights_2");
-    Var x, y;
-    output(x,y) = 1.f - weights(x,y);
-    return output;
-}
+    Func output(name);
 
-/*
- * Utility to take the difference between two functions
- */
-Func diff(Func im1, Func im2) {
-    Func output(im1.name() + "_laplace");
     Var x, y;
+
     output(x,y) = i32(im1(x,y)) - i32(im2(x,y));
+
+    return output;
+}
+
+
+Func gamma_correct(Func input) {
+
+    // http://www.color.org/sRGB.xalter
+    // see formulas 1.2a and 1.2b
+
+    Func output("gamma_correct_output");
+
+    Var x, y, c;
+
+    // constants for gamma correction
+
+    int cutoff = 200;                   // ceil(0.00304 * UINT16_MAX)
+    float gamma_toe = 12.92;
+    float gamma_pow = 0.416667;         // 1 / 2.4
+    float gamma_fac = 680.552897;       // 1.055 * UINT16_MAX ^ (1 - gamma_pow);
+    float gamma_con = -3604.425;        // -0.055 * UINT16_MAX
+
+    if (input.dimensions() == 2) {
+        output(x, y) = u16(select(input(x, y) < cutoff,
+                            gamma_toe * input(x, y),
+                            gamma_fac * pow(input(x, y), gamma_pow) + gamma_con));
+    }
+    else {
+        output(x, y, c) = u16(select(input(x, y, c) < cutoff,
+                            gamma_toe * input(x, y, c),
+                            gamma_fac * pow(input(x, y, c), gamma_pow) + gamma_con));
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
+Func gamma_inverse(Func input) {
+
+    Func output("gamma_inverse_output");
+
+    Var x, y, c;
+
+    // constants for inverse gamma correction
+
+    int cutoff = 2575;                   // ceil(1/0.00304 * UINT16_MAX)
+    float gamma_toe = 0.0774;            // 1 / 12.92
+    float gamma_pow = 2.4;
+    float gamma_fac = 57632.49226;       // 1 / 1.055 ^ gamma_pow * U_INT16_MAX;
+    float gamma_con = 0.055;
+
+    if (input.dimensions() == 2) {
+        output(x, y) = u16(select(input(x, y) < cutoff,
+                            gamma_toe * input(x, y),
+                            pow(f32(input(x, y)) / 65535.f + gamma_con, gamma_pow) * gamma_fac));
+    }
+    else {
+        output(x, y, c) = u16(select(input(x, y, c) < cutoff,
+                            gamma_toe * input(x, y),
+                            pow(f32(input(x, y, c)) / 65535.f + gamma_con, gamma_pow) * gamma_fac));
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
     return output;
 }

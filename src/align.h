@@ -4,6 +4,9 @@
 #define T_SIZE 32
 #define T_SIZE_2 16
 
+#define MIN_OFFSET -168
+#define MAX_OFFSET 126
+
 #include "Halide.h"
 
 /* 
