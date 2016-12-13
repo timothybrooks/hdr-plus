@@ -17,12 +17,6 @@ Func black_white_point(Func input, const BlackPoint bp, const BlackPoint wp) {
 
     output(x, y) = u16_sat((i32(input(x, y)) - bp) * white_factor);
 
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    output.compute_root().parallel(y).vectorize(x, 16);
-
     return output;
 }
 
@@ -146,10 +140,10 @@ Func demosaic(Func input, int width, int height) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    f0.compute_root().parallel(y).vectorize(x, 16);
-    f1.compute_root().parallel(y).vectorize(x, 16);
-    f2.compute_root().parallel(y).vectorize(x, 16);
-    f3.compute_root().parallel(y).vectorize(x, 16);
+    f0.compute_root().parallel(y).parallel(x);
+    f1.compute_root().parallel(y).parallel(x);
+    f2.compute_root().parallel(y).parallel(x);
+    f3.compute_root().parallel(y).parallel(x);
 
     d0.compute_root().parallel(y).vectorize(x, 16);
     d1.compute_root().parallel(y).vectorize(x, 16);
@@ -170,151 +164,143 @@ Func demosaic(Func input, int width, int height) {
     return output;
 }
 
-Func gamma_single_channel(Func input) {
-    // http://www.color.org/sRGB.xalter
-    // see formulas 1.2a and 1.2b
+Func combine(Func im1, Func im2, int width, int height, Func dist) {
 
-    Func output("gamma_correct_output");
+    // exposure fusion as described by Mertens et al. modified to only use intensity metric
+    // http://ntp-0.cs.ucl.ac.uk/staff/j.kautz/publications/exposure_fusion.pdf
 
-    Var x, y, c;
-
-    // constants for gamma correction
-
-    int cutoff = 200;                   // ceil(0.00304 * UINT16_MAX)
-    float gamma_toe = 12.92;
-    float gamma_pow = 0.416667;         // 1 / 2.4
-    float gamma_fac = 680.552897;       // 1.055 * UINT16_MAX ^ (1 - gamma_pow);
-    float gamma_con = -3604.425;        // -0.055 * UINT16_MAX
-
-    output(x, y) = u16(select(input(x, y) < cutoff,
-                                 gamma_toe * input(x, y),
-                                 gamma_fac * pow(input(x, y), gamma_pow) + gamma_con));
-
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    output.compute_root().parallel(y).vectorize(x, 16);
-
-    return output;
-}
-
-Func gamma_inverse_single_channel(Func input) {
-
-    Func output("gamma_inverse_output");
-
-    Var x, y;
-
-    // constants for gamma correction
-
-    int cutoff = 2575;                   // ceil(1/0.00304 * UINT16_MAX)
-    float gamma_toe = 0.0774;            // 1 / 12.92
-    float gamma_pow = 2.4;
-    float gamma_fac = 57632.49226;       // 1 / 1.055 ^ gamma_pow * U_INT16_MAX;
-    float gamma_offset = .055;
-
-    output(x, y) = u16(select(input(x, y) < cutoff,
-                              gamma_toe * input(x, y),
-                              pow(f32(input(x, y))/65535.f + gamma_offset, gamma_pow) * gamma_fac));
-
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    output.compute_root().parallel(y).vectorize(x, 16);
-
-    return output;
-}
-
-//exposure fusion as described by Mertens et al. Modified to only use intensity
-//http://ntp-0.cs.ucl.ac.uk/staff/j.kautz/publications/exposure_fusion.pdf
-Func combine(Func im1, Func im2, Func dist) {
+    Func init_mask1("mask1_layer_0");
+    Func init_mask2("mask2_layer_0");
     Func accumulator("combine_accumulator");
     Func output("combine_output");
-    
+
     Var x, y;
-    
-    accumulator(x,y) = i32(0);
 
-    //Initialize gaussian/laplacian pyramid layers
-    int numLevels = 5;
-    Func unblurred1 = im1;
-    Func unblurred2 = im2;
-    Func blurred1 = gauss_7x7(im1, false);
-    Func blurred2 = gauss_7x7(im2, false);
-    Func laplace1 = diff(unblurred1, blurred1);
-    Func laplace2 = diff(unblurred2, blurred2);
-    Func mask1 = get_weights(im1, im2, dist);
-    Func mask2 = invert_weights(mask1);
+    // mirror input images
 
-    //At each level of the laplacian pyramid, weight that frequency band
-    //with a blurred version of the initial weights
-    for (int level = 0; level < numLevels; level++) {
-        //add current frequency band
-        accumulator(x, y) += i32(laplace1(x,y) * mask1(x,y));
-        accumulator(x, y) += i32(laplace2(x,y) * mask2(x,y));
-        //save current gauss level to produce next laplace level
+    Func im1_mirror = BoundaryConditions::repeat_edge(im1, 0 , width, 0, height);
+    Func im2_mirror = BoundaryConditions::repeat_edge(im2, 0 , width, 0, height);
+
+    // initial blurred layers to compute laplacian pyramid
+
+    Func unblurred1 = im1_mirror;
+    Func unblurred2 = im2_mirror;
+
+    Func blurred1 = gauss_7x7(im1_mirror, "img1_layer_0");
+    Func blurred2 = gauss_7x7(im2_mirror, "img2_layer_0");
+
+    Func laplace1, laplace2, mask1, mask2;
+
+    // initial masks computed from input distribution function
+
+    Expr weight1 = f32(dist(im1(x,y)));
+    Expr weight2 = f32(dist(im2(x,y)));
+
+    init_mask1(x, y) = weight1 / (weight1 + weight2);
+    init_mask2(x, y) = 1.f - init_mask1(x, y);
+
+    mask1 = init_mask1;
+    mask2 = init_mask2;
+
+    // blend frequency band of images with corresponding frequency band of weights; accumulate over frequency bands
+
+    int num_layers = 3;
+
+    accumulator(x, y) = i32(0);
+
+    for (int layer = 1; layer < num_layers; layer++) {
+
+        std::string prev_layer_str = std::to_string(layer - 1);
+        std::string layer_str = std::to_string(layer);
+
+        // previous laplace layer
+
+        laplace1 = diff(unblurred1, blurred1, "laplace1_layer_" + prev_layer_str);
+        laplace2 = diff(unblurred2, blurred2, "laplace2_layer_" + layer_str);
+
+        // add previous frequency band
+
+        accumulator(x, y) += i32(laplace1(x,y) * mask1(x,y)) + i32(laplace2(x,y) * mask2(x,y));
+
+        // save previous gauss layer to produce current laplace layer
+
         unblurred1 = blurred1;
         unblurred2 = blurred2;
-        //next gauss level
-        blurred1 = gauss_7x7(blurred1, false);
-        blurred2 = gauss_7x7(blurred2, false);
-        //next laplace level
-        laplace1 = diff(unblurred1, blurred1);
-        laplace2 = diff(unblurred2, blurred2);
-        //next gauss level of mask
-        mask1 = gauss_7x7(mask1, true);
-        mask2 = gauss_7x7(mask2, true);
+
+        // current gauss layer of images
+
+        blurred1 = gauss_7x7(blurred1, "img1_layer_" + layer_str);
+        blurred2 = gauss_7x7(blurred2, "img1_layer_" + layer_str);
+
+        // current gauss layer of masks
+
+        mask1 = gauss_7x7(mask1, "mask1_layer_" + layer_str);
+        mask2 = gauss_7x7(mask2, "mask2_layer_" + layer_str);
     }
 
-    //Lowest frequency band
-    accumulator(x, y) += i32(blurred1(x,y) * mask1(x, y));
-    accumulator(x, y) += i32(blurred2(x,y) * mask2(x, y));
+    // add the highest pyramid layer (lowest frequency band)
+
+    accumulator(x, y) += i32(blurred1(x,y) * mask1(x, y)) + i32(blurred2(x,y) * mask2(x, y));
+
     output(x,y) = u16_sat(accumulator(x,y));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
-    accumulator.vectorize(x,16).parallel(y);
-    accumulator.update(0).vectorize(x,16).parallel(y);
-    accumulator.update(1).vectorize(x,16).parallel(y);
-    accumulator.update(2).vectorize(x,16).parallel(y);
-    accumulator.update(3).vectorize(x,16).parallel(y);
-    accumulator.compute_root();
+
+    init_mask1.compute_root().parallel(y).vectorize(x, 16);
+
+    accumulator.compute_root().parallel(y).vectorize(x, 16);
+
+    for (int layer = 0; layer < num_layers; layer++) {
+
+        accumulator.update(layer).parallel(y).vectorize(x, 16);
+    }
+
     return output;
 }
 
-Func tone_map(Func input, int width, int height) {
-    Func input_repeat = BoundaryConditions::repeat_edge(input, 0 , width, 0, height);
-    int num_channels = 3;
-    RDom r(0, num_channels);
-
-    Var x, y;
+Func tone_map(Func input, int width, int height, int gain) {
 
     Func grayscale("grayscale");
-    grayscale(x, y) = u16(sum(u32(input_repeat(x, y, r))) / num_channels);
-
     Func brighter("brighter_grayscale");
-    brighter(x, y) = u16_sat(4 * u32(grayscale(x, y)));
-
-    Func gamma_grayscale = gamma_single_channel(grayscale);
-    Func gamma_brighter = gamma_single_channel(brighter);
-
-    //distribution function from exposure fusion paper () 
-    Func dist("luma_weight_distribution");
-    dist(x) = f64(exp(-12.5f * pow(f64(x)/65535.f - .5f, 2.f)));
-
-    //Func result = combine(test_gradient, brighter, dist);
-    Func result = gamma_inverse_single_channel(combine(gamma_grayscale, gamma_brighter, dist));
-
+    Func normal_dist("luma_weight_distribution");
     Func output("tone_map_output");
-    Var c;
-    output(x,y,c) = u16_sat(u32(input(x, y, c)) * u32(result(x, y)) / max(1, grayscale(x, y)));
+    
+    Var x, y, c, v;
+    RDom r(0, 3);
+
+    // use grayscale and brighter grayscale images for exposure fusion
+
+    grayscale(x, y) = u16(sum(u32(input(x, y, r))) / 3);
+
+    brighter(x, y) = u16_sat(gain * u32(grayscale(x, y)));
+
+    // gamma correct before combining
+
+    Func gamma_grayscale = gamma_correct(grayscale);
+    Func gamma_brighter = gamma_correct(brighter);
+
+    // distribution function (from exposure fusion paper)
+    
+    normal_dist(v) = f32(exp(-12.5f * pow(f32(v) / 65535.f - .6f, 2.f)));
+
+    // combine and invert gamma correction
+
+    Func combine_output = combine(gamma_grayscale, gamma_brighter, width, height, normal_dist);
+    Func linear_combine_output = gamma_inverse(combine_output);
+
+    // reintroduce image color
+
+    output(x, y, c) = u16_sat(u32(input(x, y, c)) * u32(linear_combine_output(x, y)) / max(1, grayscale(x, y)));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
     
+    grayscale.compute_root().parallel(y).vectorize(x, 16);
+    
+    normal_dist.compute_root().vectorize(v, 16);
 
     return output;
 }
@@ -332,8 +318,6 @@ Func chroma_denoise(Func input, int width, int height) {
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
-
-    //TODO
 
     return output;
 }
@@ -362,39 +346,7 @@ Func srgb(Func input) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    srgb_matrix.compute_root().parallel(y).vectorize(x, 16);;
-
-    output.compute_root().parallel(y).vectorize(x, 16);
-
-    return output;
-}
-
-Func gamma_correct(Func input) {
-
-    // http://www.color.org/sRGB.xalter
-    // see formulas 1.2a and 1.2b
-
-    Func output("gamma_correct_output");
-
-    Var x, y, c;
-
-    // constants for gamma correction
-
-    int cutoff = 200;                   // ceil(0.00304 * UINT16_MAX)
-    float gamma_toe = 12.92;
-    float gamma_pow = 0.416667;         // 1 / 2.4
-    float gamma_fac = 680.552897;       // 1.055 * UINT16_MAX ^ (1 - gamma_pow);
-    float gamma_con = -3604.425;        // -0.055 * UINT16_MAX
-
-    output(x, y, c) = u16(select(input(x, y, c) < cutoff,
-                                 gamma_toe * input(x, y, c),
-                                 gamma_fac * pow(input(x, y, c), gamma_pow) + gamma_con));
-
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    output.compute_root().parallel(y).vectorize(x, 16);
+    srgb_matrix.compute_root().parallel(y).parallel(x);
 
     return output;
 }
@@ -420,7 +372,7 @@ Func u8bit_interleaved(Func input) {
 
 Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb) {
 
-    // 1. Black-level subtraction and white-level scaling
+    // 1. Black-layer subtraction and white-layer scaling
     Func black_white_point_output = black_white_point(Func(input), bp, wp);
 
     // 2. White balancing
@@ -436,7 +388,7 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func srgb_output = srgb(demosaic_output);
     
     // 6. Tone mapping
-    Func tone_map_output = tone_map(srgb_output, width, height);
+    Func tone_map_output = tone_map(srgb_output, width, height, 4);
 
     // 7. Gamma correction
     Func gamma_correct_output = gamma_correct(tone_map_output);

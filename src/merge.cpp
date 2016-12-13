@@ -21,9 +21,9 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
     RDom r0(0, 16, 0, 16);                          // reduction over pixels in downsampled tile
     RDom r1(1, imgs.extent(2) - 1);                 // reduction over alternate images
 
-    // mirror input image with overlapping edges
+    // mirror input with overlapping edges
 
-    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs);
+    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs, 0, imgs.width(), 0, imgs.height());
 
     // downsampled layer for computing L1 distances
 
@@ -36,7 +36,7 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
 
     // expressions for summing over pixels in each tile
 
-    offset = clamp(P(alignment(tx, ty, n)), P(-168, -168), P(168, 168));
+    offset = clamp(P(alignment(tx, ty, n)), P(MIN_OFFSET, MIN_OFFSET), P(MAX_OFFSET, MAX_OFFSET));
 
     al_x = idx_layer(tx, r0.x) + offset.x / 2;
     al_y = idx_layer(ty, r0.y) + offset.y / 2;
