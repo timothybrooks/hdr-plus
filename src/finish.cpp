@@ -379,10 +379,10 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height);
+    //Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height);
 
     // 5. sRGB color correction
-    Func srgb_output = srgb(chroma_denoised_output);
+    Func srgb_output = srgb(demosaic_output);
     
     // 6. Tone mapping
     Func tone_map_output = tone_map(srgb_output, width, height, 4);
