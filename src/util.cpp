@@ -66,7 +66,7 @@ Func gauss_7x7(Func input, std::string name) {
     Func output(name);
     Func k(name + "_filter");
 
-    Var x, y;
+    Var x, y, c;
 
     //gaussian kernel
 
@@ -81,12 +81,21 @@ Func gauss_7x7(Func input, std::string name) {
     k(-3,  3) = 0.007507f; k(-2,  3) = 0.011815f; k(-1,  3) = 0.015509f; k(0,  3) = 0.016982f; k(1,  3) = 0.015509f; k(2,  3) = 0.011815f; k(3,  3) = 0.007507f;
 
     RDom r(-3, 7, -3, 7);
+    Expr val;
 
-    Expr val = sum(input(x + r.x, y + r.y) * k(r.x, r.y));
+    if (input.dimensions() == 2) {
+        val = sum(input(x + r.x, y + r.y) * k(r.x, r.y));
+    } else {
+        val = sum(input(x + r.x, y + r.y, c) * k(r.x, r.y));
+    }
 
     if (input.output_types()[0] == UInt(16)) val = u16(val);
 
-    output(x, y) = val;
+    if (input.dimensions() == 2) {
+        output(x, y) = val;
+    } else {
+        output (x, y, c) = val;
+    }
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
@@ -100,15 +109,19 @@ Func gauss_7x7(Func input, std::string name) {
 }
 
 /*
- * Computes difference between two functions
+ * Computes difference between two integer functions
  */
 Func diff(Func im1, Func im2, std::string name) {
 
     Func output(name);
 
-    Var x, y;
+    Var x, y, c;
 
-    output(x,y) = i32(im1(x,y)) - i32(im2(x,y));
+    if (im1.dimensions() == 2) {
+        output(x,y) = i32(im1(x,y)) - i32(im2(x,y));
+    } else {
+        output(x,y,c) = i32(im1(x,y,c)) - i32(im2(x,y,c));
+    }
 
     return output;
 }

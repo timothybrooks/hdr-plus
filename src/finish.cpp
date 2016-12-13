@@ -430,10 +430,16 @@ Func contrast(Func input, float scale) {
 
 Func sharpen(Func input) {
     Func output("sharpen_output");
+    Func blurred;
+    Func laplace;
+    return input;
 
     Var x, y, c;
 
-    output(x, y, c) = input(x, y, c);
+    blurred = gauss_7x7(input, "unsharp_blurred");
+    laplace = diff(input, blurred, "unsharp_laplace");
+    output(x, y, c) = u16(clamp(i32(input(x, y, c)) + laplace(x, y, c), 0, 65535));
+
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
