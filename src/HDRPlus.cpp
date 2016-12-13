@@ -50,9 +50,23 @@ class HDRPlus {
             // In the future we can decide if it is better to include them in this class
 
             Func alignment = align(imgs);
-            Image<uint16_t> output = merge(imgs, alignment);
+            Func merged = merge(imgs, alignment);
+            Func finished = finish(merged, width, height, bp, wp, wb);
 
-            return finish(output, bp, wp, wb);
+            ///////////////////////////////////////////////////////////////////////////
+            // realize image
+            ///////////////////////////////////////////////////////////////////////////
+
+            Image<uint8_t> output_img(3, width, height);
+
+            finished.realize(output_img);
+
+            // transpose to account for interleaved layout
+
+            output_img.transpose(0, 1);
+            output_img.transpose(1, 2);
+
+            return output_img;
         }
 
         static bool load_raws(std::string dir_path, std::vector<std::string> &img_names, Image<uint16_t> &imgs) {

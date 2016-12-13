@@ -141,18 +141,9 @@ Func merge_spatial(Func input) {
 /*
  *
  */
-Image<uint16_t> merge(Image<uint16_t> imgs, Func alignment) {
+Func merge(Image<uint16_t> imgs, Func alignment) {
 
     Func merge_temporal_output = merge_temporal(imgs, alignment);
 
-    Func merge_spatial_output = merge_spatial(merge_temporal_output);
-
-    ///////////////////////////////////////////////////////////////////////////
-    // realize image
-    ///////////////////////////////////////////////////////////////////////////
-
-    Image<uint16_t> output_img(imgs.width(), imgs.height());
-    merge_spatial_output.realize(output_img);
-    
-    return output;
+    return merge_spatial(merge_temporal_output);
 }

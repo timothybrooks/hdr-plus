@@ -267,7 +267,7 @@ Func gamma_correct(Func input) {
     return output;
 }
 
-Image<uint8_t> u8bit_interleaved(Func input, int width, int height) {
+Func u8bit_interleaved(Func input) {
 
     Func output("8bit_interleaved_output");
 
@@ -283,26 +283,10 @@ Image<uint8_t> u8bit_interleaved(Func input, int width, int height) {
 
     output.compute_root().parallel(y).vectorize(x, 16);
 
-    ///////////////////////////////////////////////////////////////////////////
-    // realize image
-    ///////////////////////////////////////////////////////////////////////////
-
-    Image<uint8_t> output_img(3, width, height);
-
-    output.realize(output_img);
-
-    // transpose to account for interleaved layout
-
-    output_img.transpose(0, 1);
-    output_img.transpose(1, 2);
-
-    return output_img;
+    return output;
 }
 
-Image<uint8_t> finish(Image<uint16_t> input, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb) {
-
-    int width = input.width();
-    int height = input.height();
+Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb) {
 
     // 1. Black-level subtraction and white-level scaling
     Func black_white_point_output = black_white_point(Func(input), bp, wp);
@@ -332,5 +316,5 @@ Image<uint8_t> finish(Image<uint16_t> input, const BlackPoint bp, const WhitePoi
     // TODO
 
     // 10. Convert to 8 bit interleaved image
-    return u8bit_interleaved(gamma_correct_output, width, height);    
+    return u8bit_interleaved(gamma_correct_output);    
 }
