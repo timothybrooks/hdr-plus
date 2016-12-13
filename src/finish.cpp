@@ -6,7 +6,7 @@
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-Image<uint16_t> black_white_point(Image<uint16_t> input, const BlackPoint bp, const BlackPoint wp) {
+Func black_white_point(Func input, const BlackPoint bp, const BlackPoint wp) {
 
     Func output("black_white_point_output");
 
@@ -20,27 +20,20 @@ Image<uint16_t> black_white_point(Image<uint16_t> input, const BlackPoint bp, co
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    //output.compute_root().parallel(y).vectorize(x, 16);
+    output.compute_root().parallel(y).vectorize(x, 16);
 
-    // realize image
-
-    Image<uint16_t> output_img(input.width(), input.height());
-
-    output.realize(output_img);
-
-    return output_img;
+    return output;
 }
 
 
-Image<uint16_t> white_balance(Image<uint16_t> input, const WhiteBalance &wb) {
+Func white_balance(Func input, int width, int height, const WhiteBalance &wb) {
 
     Func output("white_balance_output");
 
     Var x, y;
+    RDom r(0, width / 2, 0, height / 2);            // reduction over half of image
 
     output(x, y) = u16(0);
-
-    RDom r(0, input.width() / 2, 0, input.height() / 2);
 
     output(r.x * 2    , r.y * 2    ) = u16_sat(wb.r  * f32(input(r.x * 2    , r.y * 2    )));   // red
     output(r.x * 2 + 1, r.y * 2    ) = u16_sat(wb.g0 * f32(input(r.x * 2 + 1, r.y * 2    )));   // green 0
@@ -51,29 +44,38 @@ Image<uint16_t> white_balance(Image<uint16_t> input, const WhiteBalance &wb) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    //output.compute_root().parallel(y).vectorize(x, 16);
+    output.compute_root().parallel(y).vectorize(x, 16);
 
-    // realize image
-
-    Image<uint16_t> output_img(input.width(), input.height());
-
-    output.realize(output_img);
-
-    return output_img;
+    return output;
 }
 
-Image<uint16_t> demosaic(Image<uint16_t> input) {
+Func demosaic(Func input, int width, int height) {
 
     // Technique from: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Demosaicing_ICASSP04.pdf
 
     // assumes RG/GB Bayer pattern
 
-    Func f0("demosaic_f0");     // G at R locations; G at B locations
-    Func f1("demosaic_f1");     // R at green in R row, B column; B at green in B row, R column
-    Func f2("demosaic_f2");     // R at green in B row, R column; B at green in R row, B column
-    Func f3("demosaic_f3");     // R at blue in B row, B column; B at red in R row, R column
+    Func f0("demosaic_f0");             // G at R locations; G at B locations
+    Func f1("demosaic_f1");             // R at green in R row, B column; B at green in B row, R column
+    Func f2("demosaic_f2");             // R at green in B row, R column; B at green in R row, B column
+    Func f3("demosaic_f3");             // R at blue in B row, B column; B at red in R row, R column
 
-    Var x, y;
+    Func d0("demosaic_0");
+    Func d1("demosaic_1");
+    Func d2("demosaic_2");
+    Func d3("demosaic_3");
+
+    Func output("demosaic_output");
+
+    Var x, y, c;
+    RDom r0(-2, 5, -2, 5);                          // reduction over weights in filter
+    RDom r1(0, width / 2, 0, height / 2);           // reduction over half of image
+
+    // mirror input image with overlapping edges to keep mosaic pattern consistency
+
+    Func input_mirror = BoundaryConditions::mirror_interior(input, 0, width, 0, height);
+
+    // demosaic filters
 
     f0(x,y) = 0;
     f1(x,y) = 0;
@@ -109,28 +111,17 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
                     f3(-1, 1) = 4;                  f3(1,  1) = 4;
                                     f3(0,  2) = -3;
 
-    Func d0("demosaic_0");
-    Func d1("demosaic_1");
-    Func d2("demosaic_2");
-    Func d3("demosaic_3");
-
-    RDom r0(-2, 5, -2, 5);
-
-    Func input_mirror = BoundaryConditions::mirror_interior(input);
+    // intermediate demosaic functions
 
     d0(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f0(r0.x, r0.y)) / f0_sum);
     d1(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f1(r0.x, r0.y)) / f1_sum);
     d2(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f2(r0.x, r0.y)) / f2_sum);
     d3(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f3(r0.x, r0.y)) / f3_sum);
 
-    Func output("demosaic_output");
-    
-    Var c;
+    // resulting demosaicked function    
 
     output(x, y, c) = input(x, y);                                              // initialize each channel to input mosaicked image
 
-    RDom r1(0, input.width() / 2, 0, input.height() / 2); 
-    
     // red
     output(r1.x * 2 + 1, r1.y * 2,     0) = d1(r1.x * 2 + 1, r1.y * 2);         // R at green in R row, B column
     output(r1.x * 2,     r1.y * 2 + 1, 0) = d2(r1.x * 2,     r1.y * 2 + 1);     // R at green in B row, R column
@@ -159,13 +150,9 @@ Image<uint16_t> demosaic(Image<uint16_t> input) {
     d2.compute_root().parallel(y).vectorize(x, 16);
     d3.compute_root().parallel(y).vectorize(x, 16);
 
-    // realize image
+    output.compute_root().parallel(y).vectorize(x, 16);
 
-    Image<uint16_t> output_img(input.width(), input.height(), 3);
-
-    output.realize(output_img);
-
-    return output_img;
+    return output;
 }
 
 Func combine(Func im1, Func im2, Func dist) {
@@ -177,16 +164,14 @@ Func combine(Func im1, Func im2, Func dist) {
     return output;
 }
 
-Image<uint16_t> tone_map(Image<uint16_t> input) {
+Func tone_map(Func input, int width, int height) {
 
-    int num_channels = input.channels();
+    RDom r(0, 3); // RGB channels
 
-    RDom r(0, num_channels); // RGB channels
-
-    Var x, y;
+    Var x, y, c;
 
     Func grayscale("grayscale");
-    grayscale(x, y) = u16(sum(u32(input(x, y, r))) / num_channels);
+    grayscale(x, y) = u16(sum(u32(input(x, y, r))) / 3);
 
     Func brighter("brighter_grayscale");
     brighter(x, y) = u16_sat(2 * u32(grayscale(x, y)));
@@ -197,7 +182,6 @@ Image<uint16_t> tone_map(Image<uint16_t> input) {
     Func result = combine(grayscale, brighter, dist);
 
     Func output("tone_map_output");
-    Var c;
 
     output(x, y, c) = u16_sat(u32(input(x, y, c)) * u32(result(x, y)) / max(1, grayscale(x, y)));
 
@@ -205,36 +189,26 @@ Image<uint16_t> tone_map(Image<uint16_t> input) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    // TODO
-
-    // realize image
-
-    Image<uint16_t> output_img(input.width(), input.height(), num_channels);
-
-    output.realize(output_img);
-
-    return output_img;
+    return output;
 }
 
-Image<uint16_t> srgb(Image<uint16_t> input) {
-
-    assert(input.channels() == 3);
+Func srgb(Func input) {
     
     Func srgb_matrix("srgb_matrix");
-    Var x, y;
+    Func output("srgb_output");
+
+    Var x, y, c;
+    RDom r(0, 3);               // reduction over color channels
+
+    // srgb conversion matrix; values taken from dcraw sRGB profile conversion
 
     srgb_matrix(x, y) = 0.f;
-
-    // matrix values taken from dcraw sRGB profile conversion
 
     srgb_matrix(0, 0) =  1.964399f; srgb_matrix(1, 0) = -1.119710f; srgb_matrix(2, 0) =  0.155311f;
     srgb_matrix(0, 1) = -0.241156f; srgb_matrix(1, 1) =  1.673722f; srgb_matrix(2, 1) = -0.432566f;
     srgb_matrix(0, 2) =  0.013887f; srgb_matrix(1, 2) = -0.549820f; srgb_matrix(2, 2) =  1.535933f;
 
-    RDom r(0, 3);
-
-    Func output("srgb_output");
-    Var c;
+    // resulting (linear) srgb image
 
     output(x, y, c) = u16_sat(sum(srgb_matrix(r, c) * input(x, y, r)));
 
@@ -242,26 +216,23 @@ Image<uint16_t> srgb(Image<uint16_t> input) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    // TODO
-
     srgb_matrix.compute_root();
 
-    // realize image
+    output.compute_root().parallel(y).vectorize(x, 16);
 
-    Image<uint16_t> output_img(input.width(), input.height(), 3);
-
-    output.realize(output_img);
-
-    return output_img;
+    return output;
 }
 
-Image<uint16_t> gamma_correct(Image<uint16_t> input) {
+Func gamma_correct(Func input) {
 
     // http://www.color.org/sRGB.xalter
     // see formulas 1.2a and 1.2b
 
     Func output("gamma_correct_output");
+
     Var x, y, c;
+
+    // constants for gamma correction
 
     int cutoff = 200;                   // ceil(0.00304 * UINT16_MAX)
     float gamma_toe = 12.92;            // 12.92
@@ -277,43 +248,40 @@ Image<uint16_t> gamma_correct(Image<uint16_t> input) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    // TODO
+    output.compute_root().parallel(y).vectorize(x, 16);
 
-    // realize image
-
-    Image<uint16_t> output_img(input.width(), input.height(), input.channels());
-
-    output.realize(output_img);
-
-    return output_img;
+    return output;
 }
 
 Image<uint8_t> finish(Image<uint16_t> input, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb) {
 
+    int width = input.width();
+    int height = input.height();
+
     // 1. Black-level subtraction
-    Image<uint16_t> black_white_point_output = black_white_point(input, bp, wp);
+    Func black_white_point_output = black_white_point(Func(input), bp, wp);
 
     // 2. Lens shading correction
     // LIKELY OMIT
 
     // 3. White balancing
-    Image<uint16_t> white_balance_output = white_balance(black_white_point_output, wb);
+    Func white_balance_output = white_balance(black_white_point_output, width, height, wb);
 
     // 4. Demosaicking
-    Image<uint16_t> demosaic_output = demosaic(white_balance_output);
+    Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 5. Chroma denoising
     // LIKELY OMIT
 
     // 6. Color correction
-    Image<uint16_t> srgb_output = srgb(demosaic_output);
+    Func srgb_output = srgb(demosaic_output);
     
     // 7. Dynamic range compression
-    Image<uint16_t> tone_map_output = tone_map(srgb_output);
+    Func tone_map_output = tone_map(srgb_output, width, height);
 
     // 8. Dehazing
     // 9. Global tone adjustment
-    Image<uint16_t> gamma_correct_output = gamma_correct(tone_map_output);
+    Func gamma_correct_output = gamma_correct(tone_map_output);
 
 
     // 10. Chromatic aberration correction

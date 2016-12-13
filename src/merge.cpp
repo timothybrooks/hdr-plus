@@ -18,8 +18,8 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
     Func output("merge_temporal_output");
 
     Var ix, iy, tx, ty, n;
-    RDom r0(0, 16, 0, 16);
-    RDom r1(1, imgs.extent(2) - 1);
+    RDom r0(0, 16, 0, 16);                          // reduction over pixels in downsampled tile
+    RDom r1(1, imgs.extent(2) - 1);                 // reduction over alternate images
 
     // mirror input image with overlapping edges
 
@@ -46,15 +46,15 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
 
     // constants for determining strength and robustness of temporal merge
     
-    float rate = 4.f;                           // rate at which inverse function is elongated
+    float factor = 4.f;                         // factor by which inverse function is elongated
     int min_dist = 8;                           // pixel L1 distance below which weight is maximal
     int max_dist = 300;                         // pixel L1 distance above which weight is zero
 
-    // average L1 distance in tile and distance normalized to min and rate 
+    // average L1 distance in tile and distance normalized to min and factor 
 
     Expr dist = sum(abs(i32(ref_val) - i32(alt_val))) / 256;
 
-    Expr norm_dist = max(1, i32(dist) / rate - min_dist / rate);
+    Expr norm_dist = max(1, i32(dist) / factor - min_dist / factor);
 
     // weight for each tile in temporal merge; inversely proportional to reference and alternate tile L1 distance
 
