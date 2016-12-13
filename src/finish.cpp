@@ -2,6 +2,7 @@
 
 #include "Halide.h"
 #include "halide_image_io.h"
+#include "util.h"
 
 using namespace Halide;
 using namespace Halide::ConciseCasts;
@@ -169,39 +170,154 @@ Func demosaic(Func input, int width, int height) {
     return output;
 }
 
-Func combine(Func im1, Func im2, Func dist) {
-    Func output("combine_output");
-    Var x, y;
+Func gamma_single_channel(Func input) {
+    // http://www.color.org/sRGB.xalter
+    // see formulas 1.2a and 1.2b
 
-    output(x, y) = im1(x, y);// / 2 + im2(x, y) / 2;
-
-    return output;
-}
-
-Func tone_map(Func input, int width, int height) {
-
-    RDom r(0, 3); // RGB channels
+    Func output("gamma_correct_output");
 
     Var x, y, c;
 
-    Func grayscale("grayscale");
-    grayscale(x, y) = u16(sum(u32(input(x, y, r))) / 3);
+    // constants for gamma correction
 
-    Func brighter("brighter_grayscale");
-    brighter(x, y) = u16_sat(2 * u32(grayscale(x, y)));
+    int cutoff = 200;                   // ceil(0.00304 * UINT16_MAX)
+    float gamma_toe = 12.92;
+    float gamma_pow = 0.416667;         // 1 / 2.4
+    float gamma_fac = 680.552897;       // 1.055 * UINT16_MAX ^ (1 - gamma_pow);
+    float gamma_con = -3604.425;        // -0.055 * UINT16_MAX
 
-    Func dist("luma_weight_distribution");
-    dist(x) = 1; // TODO
-
-    Func result = combine(grayscale, brighter, dist);
-
-    Func output("tone_map_output");
-
-    output(x, y, c) = u16_sat(u32(input(x, y, c)) * u32(result(x, y)) / max(1, grayscale(x, y)));
+    output(x, y) = u16(select(input(x, y) < cutoff,
+                                 gamma_toe * input(x, y),
+                                 gamma_fac * pow(input(x, y), gamma_pow) + gamma_con));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
+Func gamma_inverse_single_channel(Func input) {
+
+    Func output("gamma_inverse_output");
+
+    Var x, y;
+
+    // constants for gamma correction
+
+    int cutoff = 2575;                   // ceil(1/0.00304 * UINT16_MAX)
+    float gamma_toe = 0.0774;            // 1 / 12.92
+    float gamma_pow = 2.4;
+    float gamma_fac = 57632.49226;       // 1 / 1.055 ^ gamma_pow * U_INT16_MAX;
+    float gamma_offset = .055;
+
+    output(x, y) = u16(select(input(x, y) < cutoff,
+                              gamma_toe * input(x, y),
+                              pow(f32(input(x, y))/65535.f + gamma_offset, gamma_pow) * gamma_fac));
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
+Func get_weights(Func im1, Func im2, Func dist) {
+    Func output("weights_1");
+    Var x, y;
+    Expr g1 = f64(dist(im1(x,y)));
+    Expr g2 = f64(dist(im2(x,y)));
+    output(x, y) = g1 / (g1 + g2);
+    return output;
+}
+
+Func invert_weights(Func weights) {
+    Func output("weights_2");
+    Var x, y;
+    output(x,y) = 1.f - weights(x,y);
+    return output;
+}
+
+Func diff(Func im, Func im2) {
+    Func output(im.name() + "_laplace");
+    Var x, y;
+    output(x,y) = i32(im(x,y)) - i32(im2(x,y));
+    return output;
+}
+
+//exposure fusion as described by Mertens et al. Modified to only use intensity
+//http://ntp-0.cs.ucl.ac.uk/staff/j.kautz/publications/exposure_fusion.pdf
+Func combine(Func im1, Func im2, Func dist) {
+    Var x, y;
+
+    Func result("combine_intermediate_output");
+    
+    result(x,y) = i32(0);
+    Func unblurred1 = im1;
+    Func unblurred2 = im2;
+    Func blurred1 = gauss_7x7(im1, false);
+    Func blurred2 = gauss_7x7(im2, false);
+    Func laplace1 = diff(unblurred1, blurred1);
+    Func laplace2 = diff(unblurred2, blurred2);
+    Func mask1 = get_weights(im1, im2, dist);
+    Func mask2 = invert_weights(mask1);
+    for (int i = 0; i < 5; i++) {
+        result(x, y) += i32(laplace1(x,y) * mask1(x,y));
+        unblurred1 = blurred1;
+        blurred1 = gauss_7x7(blurred1, false);
+        laplace1 = diff(unblurred1, blurred1);
+        mask1 = gauss_7x7(mask1, true);
+        result(x, y) += i32(laplace2(x,y) * mask2(x,y));
+        unblurred2 = blurred2;
+        blurred2 = gauss_7x7(blurred2, false);
+        laplace2 = diff(unblurred2, blurred2);
+        mask2 = gauss_7x7(mask2, true);
+    }
+    result(x, y) += i32(blurred1(x,y) * mask1(x, y));
+    result(x, y) += i32(blurred2(x,y) * mask2(x, y));
+
+    Func output("combine_output");
+    output(x,y) = u16_sat(result(x,y));
+    return output;
+}
+
+Func tone_map(Func input, int width, int height) {
+    Func input_repeat = BoundaryConditions::repeat_edge(input, 0 , width, 0, height);
+    int num_channels = 3;
+    RDom r(0, num_channels);
+
+    Var x, y;
+
+    Func grayscale("grayscale");
+    grayscale(x, y) = u16(sum(u32(input_repeat(x, y, r))) / num_channels);
+
+    Func brighter("brighter_grayscale");
+    brighter(x, y) = u16_sat(3 * u32(grayscale(x, y)));
+
+    Func gamma_grayscale = gamma_single_channel(grayscale);
+    Func gamma_brighter = gamma_single_channel(brighter);
+
+    //distribution function from exposure fusion paper () 
+    Func dist("luma_weight_distribution");
+    dist(x) = f64(exp(-12.5f * pow(f64(x)/65535.f - .5f, 2.f)));
+
+    //Func result = combine(test_gradient, brighter, dist);
+    Func result = gamma_inverse_single_channel(combine(gamma_grayscale, gamma_brighter, dist));
+
+    Func output("tone_map_output");
+    Var c;
+    // output(x,y,c) = u16_sat(result(x,y) + 256);
+    output(x,y,c) = u16_sat(u32(input(x, y, c)) * u32(result(x, y)) / max(1, grayscale(x, y)));
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    //TODO
 
     return output;
 }
@@ -249,7 +365,7 @@ Func gamma_correct(Func input) {
     // constants for gamma correction
 
     int cutoff = 200;                   // ceil(0.00304 * UINT16_MAX)
-    float gamma_toe = 12.92;            // 12.92
+    float gamma_toe = 12.92;
     float gamma_pow = 0.416667;         // 1 / 2.4
     float gamma_fac = 680.552897;       // 1.055 * UINT16_MAX ^ (1 - gamma_pow);
     float gamma_con = -3604.425;        // -0.055 * UINT16_MAX
