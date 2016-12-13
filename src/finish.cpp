@@ -283,7 +283,7 @@ Func tone_map(Func input, int width, int height, int gain) {
 
     // distribution function (from exposure fusion paper)
     
-    normal_dist(v) = f32(exp(-12.5f * pow(f32(v) / 65535.f - .6f, 2.f)));
+    normal_dist(v) = f32(exp(-12.5f * pow(f32(v) / 65535.f - .5f, 2.f)));
 
     // combine and invert gamma correction
 
@@ -348,6 +348,39 @@ Func srgb(Func input) {
     return output;
 }
 
+Func contrast(Func input, float scale) {
+
+    Func output("contrast_output");
+
+    Var x, y, c;
+
+    /*
+    float scale = 1.f;
+
+    float factor = 3.141592f / (65535.f * scale);
+    float constant = 3.141592f / (2.f * scale);
+
+    float min_val = sin(constant);
+    float max_val = sin(factor * 65535.f - constant);
+
+    output(x, y, c) = u16_sat(65535 * (sin(factor * f32(input(x, y, c)) - constant) - min_val) / max_val);
+    */
+    float constant = 3.141592f / (2.f * scale);
+    float x_factor = 3.141592f / (scale * 65535.f);
+    float sin_const = sin(constant);
+    Expr x_scaled = f32(input(x,y,c)) * x_factor;
+    output(x, y, c) = u16_sat(65535.f * (sin(x_scaled - constant) + sin_const) / (2.f * sin_const));
+
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
 Func u8bit_interleaved(Func input) {
 
     Func output("8bit_interleaved_output");
@@ -355,7 +388,7 @@ Func u8bit_interleaved(Func input) {
     Var c, x, y;
 
     // Convert to 8 bit
-
+    
     output(c, x, y) = u8_sat(input(x, y, c) / 256);
 
     ///////////////////////////////////////////////////////////////////////////
@@ -385,17 +418,17 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func srgb_output = srgb(demosaic_output);
     
     // 6. Tone mapping
-    Func tone_map_output = tone_map(srgb_output, width, height, 4);
+    Func tone_map_output = tone_map(tone_map(srgb_output, width, height, 2), width, height, 4);
 
     // 7. Gamma correction
     Func gamma_correct_output = gamma_correct(tone_map_output);
 
     // 8. Global contrast increase
-    // TODO
+    Func contrast_output = contrast(gamma_correct_output, 1.f);
 
     // 9. Sharpening
     // TODO
 
     // 10. Convert to 8 bit interleaved image
-    return u8bit_interleaved(gamma_correct_output);
+    return u8bit_interleaved(contrast_output);
 }
