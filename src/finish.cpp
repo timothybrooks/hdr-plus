@@ -323,8 +323,11 @@ Func chroma_denoise(Func input, int width, int height) {
     Func output("chroma_denoise_output");
     Var x, y, c;
     Func yuv_input = rgb_to_yuv(input);
-    Func denoised = median_filter_3x3(yuv_input);
-    output = yuv_to_rgb(denoised);
+    Image<float> temp1 = yuv_input.realize(width,height,3);
+    Image<float> denoised = bilateral_filter(temp1, width, height);
+    Func temp2;
+    temp2(x,y,c) = denoised(x,y,c);
+    output = yuv_to_rgb(temp2);
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
@@ -427,10 +430,10 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height);
+    //Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height);
 
     // 5. sRGB color correction
-    Func srgb_output = srgb(chroma_denoised_output);
+    Func srgb_output = srgb(demosaic_output);
     
     // 6. Tone mapping
     Func tone_map_output = tone_map(srgb_output, width, height);

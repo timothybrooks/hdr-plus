@@ -1,6 +1,8 @@
 #include "util.h"
 
 #include "Halide.h"
+#include <vector>
+#include <algorithm>
 
 using namespace Halide;
 using namespace Halide::ConciseCasts;
@@ -154,16 +156,60 @@ Func yuv_to_rgb(Func input) {
     return output;
 }
 
-Func median_filter_3x3(Func input) {
-    Func output(input.name() + "median_filtered");
-    Var x, y, c;
-    output(x, y, c) = input(x, y, c);
+Image<float> bilateral_filter(Image<float> input, int width, int height) {
     
+    Func k("gauss_kernel");
+    Func weights("bilateral_weights");
+    Func total_weights("bilateral_total_weights");
+    Func bilateral("bilateral");
+    Func output("bilateral_filter_output");
+
+    Var x, y, dx, dy, c;
+
+    k(dx, dy) = f32(0.f);
+
+    k(-3, -3) = 0.007507f; k(-2, -3) = 0.011815f; k(-1, -3) = 0.015509f; k(0, -3) = 0.016982f; k(1, -3) = 0.015509f; k(2, -3) = 0.011815f; k(3, -3) = 0.007507f;
+    k(-3, -2) = 0.011815f; k(-2, -2) = 0.018594f; k(-1, -2) = 0.024408f; k(0, -2) = 0.026726f; k(1, -2) = 0.024408f; k(2, -2) = 0.018594f; k(3, -2) = 0.011815f;
+    k(-3, -1) = 0.015509f; k(-2, -1) = 0.024408f; k(-1, -1) = 0.032041f; k(0, -1) = 0.035083f; k(1, -1) = 0.032041f; k(2, -1) = 0.024408f; k(3, -1) = 0.015509f;
+    k(-3,  0) = 0.016982f; k(-2,  0) = 0.026726f; k(-1,  0) = 0.035083f; k(0,  0) = 0.038414f; k(1,  0) = 0.035083f; k(2,  0) = 0.026726f; k(3,  0) = 0.016982f;
+    k(-3,  1) = 0.015509f; k(-2,  1) = 0.024408f; k(-1,  1) = 0.032041f; k(0,  1) = 0.035083f; k(1,  1) = 0.032041f; k(2,  1) = 0.024408f; k(3,  1) = 0.015509f;
+    k(-3,  2) = 0.011815f; k(-2,  2) = 0.018594f; k(-1,  2) = 0.024408f; k(0,  2) = 0.026726f; k(1,  2) = 0.024408f; k(2,  2) = 0.018594f; k(3,  2) = 0.011815f;
+    k(-3,  3) = 0.007507f; k(-2,  3) = 0.011815f; k(-1,  3) = 0.015509f; k(0,  3) = 0.016982f; k(1,  3) = 0.015509f; k(2,  3) = 0.011815f; k(3,  3) = 0.007507f;
+    
+    RDom r(-3, 7, -3, 7);
+
+    Func input_mirror = BoundaryConditions::mirror_interior(input, 0, width, 0, height);
+
+    Expr dist = f32(abs(input(x, y, c) - input_mirror(x + dx, y + dy, c))) / 65535.f;
+
+    Expr score = 1.f - dist * dist;
+
+    weights(dx, dy, x, y, c) = k(dx, dy) * score;
+
+    total_weights(x, y, c) = sum(weights(r.x, r.y, x, y, c));
+
+    bilateral(x, y, c) = sum(input_mirror(x + r.x, y + r.y, c) * weights(r.x, r.y, x, y, c)) / total_weights(x, y, c);
+
+    output(x, y, c) = input(x, y, c);
+    output(x, y, 1) = bilateral(x, y, 1);
+    output(x, y, 2) = bilateral(x, y, 2);
+
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    //TODO
+    k.parallel(dy).parallel(dx).compute_root();
 
-    return output;
+    total_weights.compute_root().parallel(y).vectorize(x, 16);
+
+    bilateral.compute_root().parallel(y).vectorize(x, 16);
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    output.update(0).parallel(y).vectorize(x, 16);
+    output.update(1).parallel(y).vectorize(x, 16);
+
+    Image<float> out_img = output.realize(width, height, 3);
+
+    return out_img;
 }

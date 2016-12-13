@@ -48,6 +48,6 @@ Halide::Func diff(Halide::Func im1, Halide::Func im2);
 /*
  * Runs a 3x3 chroma median filter an image (only affect U and V channels)
  */
-Halide::Func median_filter_3x3(Halide::Func input);
+Halide::Image<float> bilateral_filter(Halide::Image<float> input, int width, int height);
 
 #endif
