@@ -111,7 +111,6 @@ Func diff(Func im1, Func im2, std::string name) {
     return output;
 }
 
-
 Func gamma_correct(Func input) {
 
     // http://www.color.org/sRGB.xalter
@@ -179,6 +178,60 @@ Func gamma_inverse(Func input) {
     ///////////////////////////////////////////////////////////////////////////
 
     output.compute_root().parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
+Func rgb_to_yuv(Func input) {
+    Func output("yuv_from_rgb_output");
+    Var x, y, c;
+    Expr r = input(x, y, 0);
+    Expr g = input(x, y, 1);
+    Expr b = input(x, y, 2);
+    output(x, y, c) = f32(0);
+    output(x, y, 0) =   .299f    * r + .587f    * g + .114f    * b; //Y
+    output(x, y, 1) = - .168935f * r - .331655f * g + .500590f * b; //U
+    output(x, y, 2) =   .499813f * r - .418531f * g - .081282f * b; //V
+    
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    //TODO
+
+    return output;
+}
+
+Func yuv_to_rgb(Func input) {
+    Func output("rgb_from_yuv_output");
+    Var x, y, c;
+    Expr Y = input(x, y, 0);
+    Expr U = input(x, y, 1);
+    Expr V = input(x, y, 2);
+    output(x, y, c) = u16(0);
+    output(x, y, 0) = u16_sat(Y + 1.403f * V            ); //r
+    output(x, y, 1) = u16_sat(Y -  .344f * U - .714f * V); //g
+    output(x, y, 2) = u16_sat(Y + 1.770f * U            ); //b
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    //TODO
+
+    return output;
+}
+
+Func median_filter_3x3(Func input) {
+    Func output(input.name() + "median_filtered");
+    Var x, y, c;
+    output(x, y, c) = input(x, y, c);
+    
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    //TODO
 
     return output;
 }

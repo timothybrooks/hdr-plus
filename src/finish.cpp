@@ -297,6 +297,21 @@ Func tone_map(Func input, int width, int height, int gain) {
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
+    
+
+    return output;
+}
+
+Func chroma_denoise(Func input, int width, int height) {
+    Func output("chroma_denoise_output");
+    Var x, y, c;
+    Func yuv_input = rgb_to_yuv(input);
+    Func denoised = median_filter_3x3(yuv_input);
+    output = yuv_to_rgb(denoised);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
 
     grayscale.compute_root().parallel(y).vectorize(x, 16);
     
@@ -365,10 +380,10 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    // TODO
+    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height);
 
     // 5. sRGB color correction
-    Func srgb_output = srgb(demosaic_output);
+    Func srgb_output = srgb(chroma_denoised_output);
     
     // 6. Tone mapping
     Func tone_map_output = tone_map(srgb_output, width, height, 4);
@@ -383,5 +398,5 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     // TODO
 
     // 10. Convert to 8 bit interleaved image
-    return u8bit_interleaved(gamma_correct_output);    
+    return u8bit_interleaved(gamma_correct_output);
 }
