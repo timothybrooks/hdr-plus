@@ -315,23 +315,25 @@ Func bilateral_filter(Func input, int width, int height) {
 
     Var x, y, dx, dy, c;
 
-    RDom r(-2, 5, -2, 5);
+    //gaussian kernel
 
-    // gaussian kernel
+    k(dx, dy) = f32(0.f);
 
-    k(dx, dy) = 0;
+    k(-3, -3) = 0.007507f; k(-2, -3) = 0.011815f; k(-1, -3) = 0.015509f; k(0, -3) = 0.016982f; k(1, -3) = 0.015509f; k(2, -3) = 0.011815f; k(3, -3) = 0.007507f;
+    k(-3, -2) = 0.011815f; k(-2, -2) = 0.018594f; k(-1, -2) = 0.024408f; k(0, -2) = 0.026726f; k(1, -2) = 0.024408f; k(2, -2) = 0.018594f; k(3, -2) = 0.011815f;
+    k(-3, -1) = 0.015509f; k(-2, -1) = 0.024408f; k(-1, -1) = 0.032041f; k(0, -1) = 0.035083f; k(1, -1) = 0.032041f; k(2, -1) = 0.024408f; k(3, -1) = 0.015509f;
+    k(-3,  0) = 0.016982f; k(-2,  0) = 0.026726f; k(-1,  0) = 0.035083f; k(0,  0) = 0.038414f; k(1,  0) = 0.035083f; k(2,  0) = 0.026726f; k(3,  0) = 0.016982f;
+    k(-3,  1) = 0.015509f; k(-2,  1) = 0.024408f; k(-1,  1) = 0.032041f; k(0,  1) = 0.035083f; k(1,  1) = 0.032041f; k(2,  1) = 0.024408f; k(3,  1) = 0.015509f;
+    k(-3,  2) = 0.011815f; k(-2,  2) = 0.018594f; k(-1,  2) = 0.024408f; k(0,  2) = 0.026726f; k(1,  2) = 0.024408f; k(2,  2) = 0.018594f; k(3,  2) = 0.011815f;
+    k(-3,  3) = 0.007507f; k(-2,  3) = 0.011815f; k(-1,  3) = 0.015509f; k(0,  3) = 0.016982f; k(1,  3) = 0.015509f; k(2,  3) = 0.011815f; k(3,  3) = 0.007507f;
 
-    k(-2,-2) = 2; k(-1,-2) =  4; k(0,-2) =  5; k(1,-2) =  4; k(2,-2) = 2;
-    k(-2,-1) = 4; k(-1,-1) =  9; k(0,-1) = 12; k(1,-1) =  9; k(2,-1) = 4;
-    k(-2, 0) = 5; k(-1, 0) = 12; k(0, 0) = 15; k(1, 0) = 12; k(2, 0) = 5;
-    k(-2, 1) = 4; k(-1, 1) =  9; k(0, 1) = 12; k(1, 1) =  9; k(2, 1) = 4;
-    k(-2, 2) = 2; k(-1, 2) =  4; k(0, 2) =  5; k(1, 2) =  4; k(2, 2) = 2;
+    RDom r(-3, 7, -3, 7);
 
     Func input_mirror = BoundaryConditions::mirror_interior(input, 0, width, 0, height);
 
     Expr dist = f32(i32(input_mirror(x, y, c)) - i32(input_mirror(x + dx, y + dy, c))) / 65535.f;
 
-    Expr score = 1.f - dist * dist;
+    Expr score = f32(abs(1.f - dist));
 
     weights(dx, dy, x, y, c) = k(dx, dy) * score;
 
@@ -360,21 +362,16 @@ Func bilateral_filter(Func input, int width, int height) {
     return output;
 }
 
-Func chroma_denoise(Func input, int width, int height) {
+Func chroma_denoise(Func input, int width, int height, int num_passes) {
     
-    Func output("chroma_denoise_output");
-    
-    Func yuv_input = rgb_to_yuv(input);
+    Func output = rgb_to_yuv(input);
 
-    Func pass_0 = bilateral_filter(yuv_input, width, height);
-    Func pass_1 = bilateral_filter(pass_0, width, height);
-    Func pass_2 = bilateral_filter(pass_1, width, height);
+    for (int pass = 0; pass < num_passes; pass++) {
 
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
+        output = bilateral_filter(output, width, height);
+    }
 
-    return yuv_to_rgb(pass_1);
+    return yuv_to_rgb(output);
 }
 
 Func srgb(Func input) {
@@ -470,7 +467,7 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height);
+    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, 3);
 
     // 5. sRGB color correction
     Func srgb_output = srgb(chroma_denoised_output);
