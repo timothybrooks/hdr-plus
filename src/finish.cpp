@@ -436,10 +436,14 @@ Func sharpen(Func input) {
 
     Var x, y, c;
 
-    Func blurred = gauss_7x7(input, "unsharp_blurred");
-    Func laplace = diff(input, blurred, "unsharp_laplace");
+    Func large_blurred;
+    Func small_blurred;
+    Func difference_of_gauss;
 
-    output(x, y, c) = u16(clamp(i32(input(x, y, c)) + laplace(x, y, c), 0, 65535));
+    small_blurred = gauss_7x7(input, "unsharp_small_blur");
+    large_blurred = gauss_7x7(small_blurred, "unsharp_large_blur");
+    difference_of_gauss = diff(small_blurred, large_blurred, "unsharp_DoG");
+    output(x, y, c) = u16(clamp(i32(input(x, y, c)) + difference_of_gauss(x, y, c), 0, 65535));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
