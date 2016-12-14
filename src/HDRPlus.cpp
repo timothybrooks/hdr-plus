@@ -8,16 +8,16 @@
 #include "merge.h"
 #include "finish.h"
 
-// It is ok for me to use the Halide namespace within the c++ file. It just shouldn't be used in a header file!
 using namespace Halide;
 
 // TODO: error handling should be more robust
-// to check invariants, I use assertions
-// when something fails from main, I return -1 without printing to stderr
+// To check invariants we currently use assertions.
 
-// I think this is ok for now and we should wait till later to clean things up
-// More importantly, we should implement the Align, Merge and Finsh functions
-
+/*
+ * HDRPlus Class -- houses file I/O and calls stages of the main pipeline.
+ * Also defines attributes specific to our implementation such as the static
+ * cropped image dimensions
+ */
 class HDRPlus {
 
     private:
@@ -28,6 +28,7 @@ class HDRPlus {
 
         // dimensions of pixel phone output images are 3036 x 4048
         // rounded down so both dimensions are a multiple of 16
+        // which helps avoid corner cases in align and merge
         static const int width = 4032;
         static const int height = 3024;
 
@@ -46,6 +47,9 @@ class HDRPlus {
             assert(imgs.extent(2) >= 2);            // must have at least one alternate image
         }
 
+        /*
+         * process -- calls all of the main stages of the pipeline aside from file I/O
+         */
         Image<uint8_t> process() {
 
             // These three steps of the pipeline will be defined in the other cpp files for our own organization.
@@ -71,6 +75,9 @@ class HDRPlus {
             return output_img;
         }
 
+        /*
+         * load_raws -- load in a vector of CR2 (Canon Raw) files and verify that they all have the same dimensions
+         */
         static bool load_raws(std::string dir_path, std::vector<std::string> &img_names, Image<uint16_t> &imgs) {
 
             int num_imgs = img_names.size();
@@ -106,6 +113,8 @@ class HDRPlus {
                 }
 
                 // offsets must be multiple of two to keep bayer pattern
+                // We crop the image here to simplify the rest of the pipeline.
+                // e.g. It's useful to have an image that is a multiple of half the tile size.
                 int x_offset = ((img_width  - width ) / 4) * 2;
                 int y_offset = ((img_height - height) / 4) * 2; 
 
@@ -119,6 +128,9 @@ class HDRPlus {
             return true;
         }
 
+        /*
+         * save_png -- writes processed image to specified img_name
+         */
         static bool save_png(std::string dir_path, std::string img_name, Image<uint8_t> &img) {
 
             std::string img_path = dir_path + "/" + img_name;
@@ -133,6 +145,12 @@ class HDRPlus {
 
             return true;
         }
+
+        /*
+         * find_ref -- currently unused. Finds the frame in a stack with the smallest variance.
+         * This frame would ideally be used as the reference frame for the rest of the pipeline.
+         * Based on Welford's numerically stable online variance approximation.
+         */
 
         static int find_ref(Halide::Image<uint16_t> &imgs, int min_idx = 0, int max_idx = 3) {
 

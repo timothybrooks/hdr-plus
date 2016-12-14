@@ -4,43 +4,51 @@
 #include "Halide.h"
 
 /*
- * Averages and downsamples input by 2
+ * box_down2 -- Averages and downsamples input by 2
  */
 Halide::Func box_down2(Halide::Func input, std::string name);
 
 /*
- * Blurs and downsamples input by 4
+ * gauss_down4 -- Blurs and downsamples input by 4
  */
 Halide::Func gauss_down4(Halide::Func input, std::string name);
 
 /*
- * Blurs its input with a 5x5 gaussian kernel. Requires input
- * to handle edge cases.
+ * gauss_5x5 -- Blurs its input with a 5x5 gaussian kernel. Requires input
+ * to handle boundaries. Std dev = 1
  */
 Halide::Func gauss_5x5(Halide::Func input, std::string name);
 
 /*
- * Blurs its input with a 7x7 gaussian kernel. Requires input
- * to handle edge cases.
+ * gauss_7x7 -- Blurs its input with a 7x7 gaussian kernel. Requires input
+ * to handle boundaries. Std dev = 4/3
  */
 Halide::Func gauss_7x7(Halide::Func input, std::string name);
 
 /*
- * Utility to take the difference between two functions
+ * diff -- Computes difference between two integer functions
  */
 Halide::Func diff(Halide::Func im1, Halide::Func im2, std::string);
 
+/*
+ * gamma_correct -- Takes a single or multi-channel linear image and applies gamma correction
+ * as described here: http://www.color.org/sRGB.xalter . see formulas 1.2a and 1.2b
+ */
 Halide::Func gamma_correct(Halide::Func input);
 
+/*
+ * gamma_inverse -- Takes a single or multi-channel image and undoes gamma correction to 
+ * return in to linear RGB space.
+ */
 Halide::Func gamma_inverse(Halide::Func input);
 
 /*
- * Converts u16 RGB linear image to f32 YUV image
+ * rgb_to_yuv -- converts a u16 linear rgb image to an f32 linear yuv image.
  */
  Halide::Func rgb_to_yuv(Halide::Func input);
 
 /*
- * Converts f32 YUV image to u16 RGB linear image
+ * yuv_to_rgb -- Converts f32 YUV image to u16 RGB linear image
  */
  Halide::Func yuv_to_rgb(Halide::Func input);
 

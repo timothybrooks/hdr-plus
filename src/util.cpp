@@ -7,6 +7,9 @@
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
+/*
+ * box_down2 -- averages 2x2 regions of an image to downsample linearly.
+ */
 Func box_down2(Func input, std::string name) {
 
     Func output(name);
@@ -27,6 +30,10 @@ Func box_down2(Func input, std::string name) {
     return output;
 }
 
+/*
+ * gauss_down4 -- applies a 3x3 integer gauss kernel and downsamples an image by 4 in
+ * one step.
+ */
 Func gauss_down4(Func input, std::string name) {
 
     Func output(name);
@@ -60,6 +67,9 @@ Func gauss_down4(Func input, std::string name) {
     return output;
 }
 
+/*
+ * gauss_5x5 -- Applies a 5x5 gauss kernel with a standard deviation of 1. Requires its input to handle boundaries.
+ */
 Func gauss_5x5(Func input, std::string name) {
 
     Func output(name);
@@ -105,6 +115,9 @@ Func gauss_5x5(Func input, std::string name) {
     return output;
 }
 
+/*
+ * gauss_7x7 -- Applies a 7x7 gauss kernel with a std deviation of 4/3. Requires its input to handle boundaries.
+ */
 Func gauss_7x7(Func input, std::string name) {
 
     Func output(name);
@@ -116,13 +129,13 @@ Func gauss_7x7(Func input, std::string name) {
 
     k(x,y) = f32(0.f);
 
-    k(-3, -3) = 0.007507f; k(-2, -3) = 0.011815f; k(-1, -3) = 0.015509f; k(0, -3) = 0.016982f; k(1, -3) = 0.015509f; k(2, -3) = 0.011815f; k(3, -3) = 0.007507f;
-    k(-3, -2) = 0.011815f; k(-2, -2) = 0.018594f; k(-1, -2) = 0.024408f; k(0, -2) = 0.026726f; k(1, -2) = 0.024408f; k(2, -2) = 0.018594f; k(3, -2) = 0.011815f;
-    k(-3, -1) = 0.015509f; k(-2, -1) = 0.024408f; k(-1, -1) = 0.032041f; k(0, -1) = 0.035083f; k(1, -1) = 0.032041f; k(2, -1) = 0.024408f; k(3, -1) = 0.015509f;
-    k(-3,  0) = 0.016982f; k(-2,  0) = 0.026726f; k(-1,  0) = 0.035083f; k(0,  0) = 0.038414f; k(1,  0) = 0.035083f; k(2,  0) = 0.026726f; k(3,  0) = 0.016982f;
-    k(-3,  1) = 0.015509f; k(-2,  1) = 0.024408f; k(-1,  1) = 0.032041f; k(0,  1) = 0.035083f; k(1,  1) = 0.032041f; k(2,  1) = 0.024408f; k(3,  1) = 0.015509f;
-    k(-3,  2) = 0.011815f; k(-2,  2) = 0.018594f; k(-1,  2) = 0.024408f; k(0,  2) = 0.026726f; k(1,  2) = 0.024408f; k(2,  2) = 0.018594f; k(3,  2) = 0.011815f;
-    k(-3,  3) = 0.007507f; k(-2,  3) = 0.011815f; k(-1,  3) = 0.015509f; k(0,  3) = 0.016982f; k(1,  3) = 0.015509f; k(2,  3) = 0.011815f; k(3,  3) = 0.007507f;
+    k(-3, -3) = 0.000690f; k(-2, -3) = 0.002646f; k(-1, -3) = 0.005923f; k(0, -3) = 0.007748f; k(1, -3) = 0.005923f; k(2, -3) = 0.002646f; k(3, -3) = 0.000690f;
+    k(-3, -2) = 0.002646f; k(-2, -2) = 0.010149f; k(-1, -2) = 0.022718f; k(0, -2) = 0.029715f; k(1, -2) = 0.022718f; k(2, -2) = 0.010149f; k(3, -2) = 0.002646f;
+    k(-3, -1) = 0.005923f; k(-2, -1) = 0.022718f; k(-1, -1) = 0.050855f; k(0, -1) = 0.066517f; k(1, -1) = 0.050855f; k(2, -1) = 0.022718f; k(3, -1) = 0.005923f;
+    k(-3,  0) = 0.007748f; k(-2,  0) = 0.029715f; k(-1,  0) = 0.066517f; k(0,  0) = 0.087001f; k(1,  0) = 0.066517f; k(2,  0) = 0.029715f; k(3,  0) = 0.007748f;
+    k(-3,  1) = 0.005923f; k(-2,  1) = 0.022718f; k(-1,  1) = 0.050855f; k(0,  1) = 0.066517f; k(1,  1) = 0.050855f; k(2,  1) = 0.022718f; k(3,  1) = 0.005923f;
+    k(-3,  2) = 0.002646f; k(-2,  2) = 0.010149f; k(-1,  2) = 0.022718f; k(0,  2) = 0.029715f; k(1,  2) = 0.022718f; k(2,  2) = 0.010149f; k(3,  2) = 0.002646f;
+    k(-3,  3) = 0.000690f; k(-2,  3) = 0.002646f; k(-1,  3) = 0.005923f; k(0,  3) = 0.007748f; k(1,  3) = 0.005923f; k(2,  3) = 0.002646f; k(3,  3) = 0.000690f;
 
     RDom r(-3, 7, -3, 7);
     Expr val;
@@ -153,7 +166,7 @@ Func gauss_7x7(Func input, std::string name) {
 }
 
 /*
- * Computes difference between two integer functions
+ * diff -- Computes difference between two integer functions
  */
 Func diff(Func im1, Func im2, std::string name) {
 
@@ -170,10 +183,11 @@ Func diff(Func im1, Func im2, std::string name) {
     return output;
 }
 
+/*
+ * gamma_correct -- Takes a single or multi-channel linear image and applies gamma correction
+ * as described here: http://www.color.org/sRGB.xalter . see formulas 1.2a and 1.2b
+ */
 Func gamma_correct(Func input) {
-
-    // http://www.color.org/sRGB.xalter
-    // see formulas 1.2a and 1.2b
 
     Func output("gamma_correct_output");
 
@@ -207,6 +221,10 @@ Func gamma_correct(Func input) {
     return output;
 }
 
+/*
+ * gamma_inverse -- Takes a single or multi-channel image and undoes gamma correction to 
+ * return in to linear RGB space.
+ */
 Func gamma_inverse(Func input) {
 
     Func output("gamma_inverse_output");
@@ -241,6 +259,10 @@ Func gamma_inverse(Func input) {
     return output;
 }
 
+/*
+ * rgb_to_yuv -- converts a linear rgb image to a linear yuv image. Note that the output
+ * is in float32
+ */
 Func rgb_to_yuv(Func input) {
 
     Func output("rgb_to_yuv_output");
@@ -270,6 +292,9 @@ Func rgb_to_yuv(Func input) {
     return output;
 }
 
+/*
+ * yuv_to_rgb -- Converts a linear yuv image to a linear rgb image.
+ */
 Func yuv_to_rgb(Func input) {
 
     Func output("yuv_to_rgb_output");
