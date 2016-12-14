@@ -298,15 +298,12 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
 
     int num_passes = 3;
 
-    float gain_const = 1.f + gain / num_passes;
     float comp_const = 1.f + comp / num_passes;
 
-    float gain_slope = (gain - gain_const) / (num_passes - 1);
     float comp_slope = (comp - comp_const) / (num_passes - 1);
 
     for (int pass = 0; pass < num_passes; pass++) {
 
-        float norm_gain = pass * gain_slope + gain_const;
         float norm_comp = pass * comp_slope + comp_const;
 
         bright = brighten(dark, norm_comp);
@@ -316,7 +313,7 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
 
         dark_gamma = combine(dark_gamma, bright_gamma, width, height, normal_dist);
 
-        dark = brighten(gamma_inverse(dark_gamma), norm_gain);
+        dark = brighten(gamma_inverse(dark_gamma), gain);
     }
 
     // reintroduce image color
@@ -334,23 +331,77 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
     return output;
 }
 
-Func median_filter(Func input, int width, int height, bool is_flipped) {
+Func desaturate_shadows(Func input) {
 
-    Func output("bilateral_filter_output");
+    Func output("desaturate_shadows_output");
+
+    Var x, y, c;
+
+    float threshold = 300;
+    float factor = 0.8;
+
+    Func blur = gauss_7x7(input, "desaturate_shadows_blur");
+
+    output(x, y, c) = input(x, y, c);
+
+    output(x, y, 1) = select(blur(x, y, 0) < threshold,
+                             factor * pow(abs(input(x, y, 1)), abs(blur(x, y, 0)) / threshold) * input(x, y, 1) / abs(input(x, y, 1)) + (1 - factor) * input(x, y, 1),
+                             input(x, y, 1));
+
+    output(x, y, 2) = select(blur(x, y, 0) < threshold,
+                             factor * pow(abs(input(x, y, 2)), abs(blur(x, y, 0)) / threshold) * input(x, y, 2) / abs(input(x, y, 2)) + (1 - factor) * input(x, y, 2),
+                             input(x, y, 2));
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    output.update(0).parallel(y).vectorize(x, 16);
+    output.update(1).parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
+Func median_filter(Func input, int width, int height) {
+
+    Func pass("median_filter_pass");
+    Func output("median_filter_output");
 
     Var x, y, c;
     RDom r(-1, 2, -1, 2);
 
-    output(x, y, c) = input(x, y, c);
+    Func input_mirror = BoundaryConditions::mirror_image(input, 0, width, 0, height);
 
-    if (is_flipped) {
-        output(x, y, 1) = (sum(input(x - r.x, y - r.y, 1)) - maximum(input(x - r.x, y - r.y, 1)) - minimum(input(x - r.x, y - r.y, 1))) / 2;
-        output(x, y, 2) = (sum(input(x - r.x, y - r.y, 2)) - maximum(input(x - r.x, y - r.y, 2)) - minimum(input(x - r.x, y - r.y, 2))) / 2;
-    }
-    else {
-        output(x, y, 1) = (sum(input(x + r.x, y + r.y, 1)) - maximum(input(x + r.x, y + r.y, 1)) - minimum(input(x + r.x, y + r.y, 1))) / 2;
-        output(x, y, 2) = (sum(input(x + r.x, y + r.y, 2)) - maximum(input(x + r.x, y + r.y, 2)) - minimum(input(x + r.x, y + r.y, 2))) / 2;
-    }
+    pass(x, y, c) = input(x, y, c);
+
+    pass(x, y, 1) = (sum(input_mirror(x - r.x, y - r.y, 1))
+                   - maximum(input_mirror(x - r.x, y - r.y, 1))
+                   - minimum(input_mirror(x - r.x, y - r.y, 1))) / 2;
+
+    pass(x, y, 2) = (sum(input_mirror(x - r.x, y - r.y, 2))
+                   - maximum(input_mirror(x - r.x, y - r.y, 2))
+                   - minimum(input_mirror(x - r.x, y - r.y, 2))) / 2;
+
+    output(x, y, c) = pass(x, y, c);
+
+    output(x, y, 1) = (sum(pass(x + r.x, y + r.y, 1))
+                     - maximum(pass(x + r.x, y + r.y, 1))
+                     - minimum(pass(x + r.x, y + r.y, 1))) / 2;
+
+    output(x, y, 2) = (sum(pass(x + r.x, y + r.y, 2))
+                     - maximum(pass(x + r.x, y + r.y, 2))
+                     - minimum(pass(x + r.x, y + r.y, 2))) / 2;
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    pass.compute_root().parallel(y).vectorize(x, 16);
+
+    pass.update(0).parallel(y).vectorize(x, 16);
+    pass.update(1).parallel(y).vectorize(x, 16);
 
     output.compute_root().parallel(y).vectorize(x, 16);
 
@@ -389,7 +440,7 @@ Func bilateral_filter(Func input, int width, int height) {
 
     Expr dist = f32(i32(blur_input(x, y, c)) - i32(blur_input(x + dx, y + dy, c)));
 
-    float sig2 = 300.f;
+    float sig2 = 100.f;
     Expr score = exp(-dist * dist / sig2);
 
     weights(dx, dy, x, y, c) = k(dx, dy) * score;
@@ -398,7 +449,7 @@ Func bilateral_filter(Func input, int width, int height) {
 
     bilateral(x, y, c) = sum(input_mirror(x + r.x, y + r.y, c) * weights(r.x, r.y, x, y, c)) / total_weights(x, y, c);
 
-    output(x, y, c) = input(x, y, c);
+    output(x, y, c) = f32(input(x, y, c));
     output(x, y, 1) = bilateral(x, y, 1);
     output(x, y, 2) = bilateral(x, y, 2);
 
@@ -424,9 +475,10 @@ Func chroma_denoise(Func input, int width, int height, int num_passes) {
 
     for (int pass = 0; pass < num_passes; pass++) {
 
-        output = median_filter(output, width, height, false);
-        output = median_filter(output, width, height, true);
+        output = median_filter(output, width, height);
     }
+
+    output = desaturate_shadows(output);
 
     for (int pass = 0; pass < num_passes; pass++) {
 
@@ -548,7 +600,7 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, 10);
+    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, 5);
 
     // 5. sRGB color correction
     Func srgb_output = srgb(chroma_denoised_output);
