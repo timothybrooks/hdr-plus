@@ -68,39 +68,35 @@ Func gauss_down4(Func input, std::string name) {
 }
 
 /*
- * gauss_5x5 -- Applies a 5x5 gauss kernel with a standard deviation of 1. Requires its input to handle boundaries.
+ * gauss_7x7 -- Applies a 7x7 gauss kernel with a std deviation of 4/3. Requires its input to handle boundaries.
  */
-Func gauss_5x5(Func input, std::string name) {
+Func gauss(Func input, Func k, RDom r, std::string name) {
 
+    Func blur_x(name + "_x");
     Func output(name);
-    Func k(name + "_filter");
 
     Var x, y, c;
 
-    //gaussian kernel
-
-    k(x,y) = f32(0.f);
-
-    k(-2, -2) = 0.003765f; k(-1, -2) = 0.015019f; k(0, -2) = 0.023792f; k( 1, -2) = 0.015019f; k( 2, -2) = 0.003765f;
-    k(-2, -1) = 0.015019f; k(-1, -1) = 0.059912f; k(0, -1) = 0.094907f; k( 1, -1) = 0.059912f; k( 2, -1) = 0.015019f;
-    k(-2,  0) = 0.023792f; k(-1,  0) = 0.094907f; k(0,  0) = 0.150342f; k( 1,  0) = 0.094907f; k( 2,  0) = 0.023792f;
-    k(-2,  1) = 0.015019f; k(-1,  1) = 0.059912f; k(0,  1) = 0.094907f; k( 1,  1) = 0.059912f; k( 2,  1) = 0.015019f;
-    k(-2,  2) = 0.003765f; k(-1,  2) = 0.015019f; k(0,  2) = 0.023792f; k( 1,  2) = 0.015019f; k( 2,  2) = 0.003765f;
-
-    RDom r(-2, 5, -2, 5);
     Expr val;
 
     if (input.dimensions() == 2) {
-        val = sum(input(x + r.x, y + r.y) * k(r.x, r.y));
-    } else {
-        val = sum(input(x + r.x, y + r.y, c) * k(r.x, r.y));
-    }
 
-    if (input.output_types()[0] == UInt(16)) val = u16(val);
+        blur_x(x, y) = sum(input(x + r, y) * k(r));
 
-    if (input.dimensions() == 2) {
+        val = sum(blur_x(x, y + r) * k(r));
+
+        if (input.output_types()[0] == UInt(16)) val = u16(val);
+
         output(x, y) = val;
-    } else {
+    }
+    else {
+
+        blur_x(x, y, c) = sum(input(x + r, y, c) * k(r));
+
+        val = sum(blur_x(x, y + r, c) * k(r));
+
+        if (input.output_types()[0] == UInt(16)) val = u16(val);
+
         output (x, y, c) = val;
     }
 
@@ -108,61 +104,60 @@ Func gauss_5x5(Func input, std::string name) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    k.compute_root().parallel(y).parallel(x);
+    Var xi, yi;
 
-    output.compute_root().parallel(y).vectorize(x, 16);
+    blur_x.compute_at(output, x).vectorize(x, 16);
+
+    output.compute_root().tile(x, y, xi, yi, 256, 128).vectorize(xi, 16).parallel(y);
 
     return output;
 }
 
-/*
- * gauss_7x7 -- Applies a 7x7 gauss kernel with a std deviation of 4/3. Requires its input to handle boundaries.
- */
 Func gauss_7x7(Func input, std::string name) {
 
-    Func output(name);
-    Func k(name + "_filter");
+    // gaussian kernel
 
-    Var x, y, c;
+    Func k("gauss_7x7_kernel");
 
-    //gaussian kernel
+    Var x;
+    RDom r(-3, 7);
 
-    k(x,y) = f32(0.f);
+    k(x) = f32(0.f);
 
-    k(-3, -3) = 0.000690f; k(-2, -3) = 0.002646f; k(-1, -3) = 0.005923f; k(0, -3) = 0.007748f; k(1, -3) = 0.005923f; k(2, -3) = 0.002646f; k(3, -3) = 0.000690f;
-    k(-3, -2) = 0.002646f; k(-2, -2) = 0.010149f; k(-1, -2) = 0.022718f; k(0, -2) = 0.029715f; k(1, -2) = 0.022718f; k(2, -2) = 0.010149f; k(3, -2) = 0.002646f;
-    k(-3, -1) = 0.005923f; k(-2, -1) = 0.022718f; k(-1, -1) = 0.050855f; k(0, -1) = 0.066517f; k(1, -1) = 0.050855f; k(2, -1) = 0.022718f; k(3, -1) = 0.005923f;
-    k(-3,  0) = 0.007748f; k(-2,  0) = 0.029715f; k(-1,  0) = 0.066517f; k(0,  0) = 0.087001f; k(1,  0) = 0.066517f; k(2,  0) = 0.029715f; k(3,  0) = 0.007748f;
-    k(-3,  1) = 0.005923f; k(-2,  1) = 0.022718f; k(-1,  1) = 0.050855f; k(0,  1) = 0.066517f; k(1,  1) = 0.050855f; k(2,  1) = 0.022718f; k(3,  1) = 0.005923f;
-    k(-3,  2) = 0.002646f; k(-2,  2) = 0.010149f; k(-1,  2) = 0.022718f; k(0,  2) = 0.029715f; k(1,  2) = 0.022718f; k(2,  2) = 0.010149f; k(3,  2) = 0.002646f;
-    k(-3,  3) = 0.000690f; k(-2,  3) = 0.002646f; k(-1,  3) = 0.005923f; k(0,  3) = 0.007748f; k(1,  3) = 0.005923f; k(2,  3) = 0.002646f; k(3,  3) = 0.000690f;
-
-    RDom r(-3, 7, -3, 7);
-    Expr val;
-
-    if (input.dimensions() == 2) {
-        val = sum(input(x + r.x, y + r.y) * k(r.x, r.y));
-    } else {
-        val = sum(input(x + r.x, y + r.y, c) * k(r.x, r.y));
-    }
-
-    if (input.output_types()[0] == UInt(16)) val = u16(val);
-
-    if (input.dimensions() == 2) {
-        output(x, y) = val;
-    } else {
-        output (x, y, c) = val;
-    }
+    k(-3) = 0.026267f; k(-2) = 0.100742f; k(-1) = 0.225511f; k(0) = 0.29496f; 
+    k( 3) = 0.026267f; k( 2) = 0.100742f; k( 1) = 0.225511f;
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    k.compute_root().parallel(y).parallel(x);
+    k.compute_root().parallel(x);
 
-    output.compute_root().parallel(y).vectorize(x, 16);
+    return gauss(input, k, r, name);
 
-    return output;
+}
+
+Func gauss_15x15(Func input, std::string name) {
+
+    // gaussian kernel
+
+    Func k("gauss_7x7_kernel");
+
+    Var x;
+    RDom r(-7, 15);
+
+    k(x) = f32(0.f);
+
+    k(-7) = 0.004961f; k(-6) = 0.012246f; k(-5) = 0.026304f; k(-4) = 0.049165f; k(-3) = 0.079968f; k(-2) = 0.113193f; k(-1) = 0.139431f; k(0) = 0.149464f;
+    k( 7) = 0.004961f; k( 6) = 0.012246f; k( 5) = 0.026304f; k( 4) = 0.049165f; k( 3) = 0.079968f; k( 2) = 0.113193f; k( 1) = 0.139431f; 
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    k.compute_root().parallel(x);
+
+    return gauss(input, k, r, name);
 }
 
 /*
@@ -185,7 +180,7 @@ Func diff(Func im1, Func im2, std::string name) {
 
 /*
  * gamma_correct -- Takes a single or multi-channel linear image and applies gamma correction
- * as described here: http://www.color.org/sRGB.xalter . see formulas 1.2a and 1.2b
+ * as described here: http://www.color.org/sRGB.xalter. See formulas 1.2a and 1.2b
  */
 Func gamma_correct(Func input) {
 

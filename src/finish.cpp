@@ -219,7 +219,7 @@ Func combine(Func im1, Func im2, int width, int height, Func dist) {
 
     // blend frequency band of images with corresponding frequency band of weights; accumulate over frequency bands
 
-    int num_layers = 3;
+    int num_layers = 2;
 
     accumulator(x, y) = i32(0);
 
@@ -318,7 +318,7 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
         
     dark = grayscale;
 
-    int num_passes = 3;
+    int num_passes = 2;
 
     float comp_const = 1.f + comp / num_passes;
 
@@ -454,13 +454,13 @@ Func bilateral_filter(Func input, int width, int height) {
 
     k(dx, dy) = f32(0.f);
 
-    k(-3, -3) = 0.007507f; k(-2, -3) = 0.011815f; k(-1, -3) = 0.015509f; k(0, -3) = 0.016982f; k(1, -3) = 0.015509f; k(2, -3) = 0.011815f; k(3, -3) = 0.007507f;
-    k(-3, -2) = 0.011815f; k(-2, -2) = 0.018594f; k(-1, -2) = 0.024408f; k(0, -2) = 0.026726f; k(1, -2) = 0.024408f; k(2, -2) = 0.018594f; k(3, -2) = 0.011815f;
-    k(-3, -1) = 0.015509f; k(-2, -1) = 0.024408f; k(-1, -1) = 0.032041f; k(0, -1) = 0.035083f; k(1, -1) = 0.032041f; k(2, -1) = 0.024408f; k(3, -1) = 0.015509f;
-    k(-3,  0) = 0.016982f; k(-2,  0) = 0.026726f; k(-1,  0) = 0.035083f; k(0,  0) = 0.038414f; k(1,  0) = 0.035083f; k(2,  0) = 0.026726f; k(3,  0) = 0.016982f;
-    k(-3,  1) = 0.015509f; k(-2,  1) = 0.024408f; k(-1,  1) = 0.032041f; k(0,  1) = 0.035083f; k(1,  1) = 0.032041f; k(2,  1) = 0.024408f; k(3,  1) = 0.015509f;
-    k(-3,  2) = 0.011815f; k(-2,  2) = 0.018594f; k(-1,  2) = 0.024408f; k(0,  2) = 0.026726f; k(1,  2) = 0.024408f; k(2,  2) = 0.018594f; k(3,  2) = 0.011815f;
-    k(-3,  3) = 0.007507f; k(-2,  3) = 0.011815f; k(-1,  3) = 0.015509f; k(0,  3) = 0.016982f; k(1,  3) = 0.015509f; k(2,  3) = 0.011815f; k(3,  3) = 0.007507f;
+    k(-3, -3) = 0.000690f; k(-2, -3) = 0.002646f; k(-1, -3) = 0.005923f; k(0, -3) = 0.007748f; k(1, -3) = 0.005923f; k(2, -3) = 0.002646f; k(3, -3) = 0.000690f;
+    k(-3, -2) = 0.002646f; k(-2, -2) = 0.010149f; k(-1, -2) = 0.022718f; k(0, -2) = 0.029715f; k(1, -2) = 0.022718f; k(2, -2) = 0.010149f; k(3, -2) = 0.002646f;
+    k(-3, -1) = 0.005923f; k(-2, -1) = 0.022718f; k(-1, -1) = 0.050855f; k(0, -1) = 0.066517f; k(1, -1) = 0.050855f; k(2, -1) = 0.022718f; k(3, -1) = 0.005923f;
+    k(-3,  0) = 0.007748f; k(-2,  0) = 0.029715f; k(-1,  0) = 0.066517f; k(0,  0) = 0.087001f; k(1,  0) = 0.066517f; k(2,  0) = 0.029715f; k(3,  0) = 0.007748f;
+    k(-3,  1) = 0.005923f; k(-2,  1) = 0.022718f; k(-1,  1) = 0.050855f; k(0,  1) = 0.066517f; k(1,  1) = 0.050855f; k(2,  1) = 0.022718f; k(3,  1) = 0.005923f;
+    k(-3,  2) = 0.002646f; k(-2,  2) = 0.010149f; k(-1,  2) = 0.022718f; k(0,  2) = 0.029715f; k(1,  2) = 0.022718f; k(2,  2) = 0.010149f; k(3,  2) = 0.002646f;
+    k(-3,  3) = 0.000690f; k(-2,  3) = 0.002646f; k(-1,  3) = 0.005923f; k(0,  3) = 0.007748f; k(1,  3) = 0.005923f; k(2,  3) = 0.002646f; k(3,  3) = 0.000690f;
 
     RDom r(-3, 7, -3, 7);
 
@@ -469,7 +469,7 @@ Func bilateral_filter(Func input, int width, int height) {
 
     Expr dist = f32(i32(blur_input(x, y, c)) - i32(blur_input(x + dx, y + dy, c)));
 
-    float sig2 = 100.f;
+    float sig2 = 200.f;
     Expr score = exp(-dist * dist / sig2);
 
     weights(dx, dy, x, y, c) = k(dx, dy) * score;
@@ -600,8 +600,10 @@ Func sharpen(Func input) {
 
     small_blurred = gauss_7x7(input, "unsharp_small_blur");
     large_blurred = gauss_7x7(small_blurred, "unsharp_large_blur");
+
     difference_of_gauss = diff(small_blurred, large_blurred, "unsharp_DoG");
-    output(x, y, c) = u16(clamp(i32(input(x, y, c)) + difference_of_gauss(x, y, c), 0, 65535));
+
+    output(x, y, c) = u16(clamp(i32(input(x, y, c)) + 4 * difference_of_gauss(x, y, c), 0, 65535));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
@@ -651,7 +653,7 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, 5);
+    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, 1);
 
     // 5. sRGB color correction
     Func srgb_output = srgb(chroma_denoised_output);

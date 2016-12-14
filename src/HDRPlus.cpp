@@ -209,8 +209,8 @@ int main(int argc, char* argv[]) {
     const WhiteBalance wb = {1.3984, 1, 1, 2.415};   // r, g0, g1, b
     const BlackPoint bp = 2050;
     const WhitePoint wp = 15464;
-    const Compression c = 3.5f;
-    const Gain g = 1.2f;
+    const Compression c = 5.0f;
+    const Gain g = 1.35f;
 
     HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb, c, g);
 
