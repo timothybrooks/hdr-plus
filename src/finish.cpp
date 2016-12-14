@@ -7,6 +7,10 @@
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
+/*
+ * black_white_point -- renormalizes an image based on a precomputed black and white
+ * point to take advantage of the full 16-bit integer depth.
+ */
 Func black_white_point(Func input, const BlackPoint bp, const BlackPoint wp) {
 
     Func output("black_white_point_output");
@@ -20,7 +24,11 @@ Func black_white_point(Func input, const BlackPoint bp, const BlackPoint wp) {
     return output;
 }
 
-
+/*
+ * white-balance -- white-balances the color channels of an image based on precomputed 
+ * data stored with the RAW photo. Note that the two green channels in the bayer pattern
+ * are white-balanced separately. 
+ */
 Func white_balance(Func input, int width, int height, const WhiteBalance &wb) {
 
     Func output("white_balance_output");
@@ -49,9 +57,12 @@ Func white_balance(Func input, int width, int height, const WhiteBalance &wb) {
     return output;
 }
 
+/*
+ * demosaic -- interpolates missing color channels in the bayer mosaic based on the work of Malvar et. al described here:
+ * https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Demosaicing_ICASSP04.pdf . Assumes that data is laid
+ * out in an RGGB pattern.
+ */
 Func demosaic(Func input, int width, int height) {
-
-    // Technique from: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Demosaicing_ICASSP04.pdf
 
     // assumes RG/GB Bayer pattern
 
@@ -164,6 +175,10 @@ Func demosaic(Func input, int width, int height) {
     return output;
 }
 
+/*
+ * combine -- combines two greyscale images with a laplacian pyramid by using the given 
+ * distribution function to weight the images relative to each other.
+ */
 Func combine(Func im1, Func im2, int width, int height, Func dist) {
 
     // exposure fusion as described by Mertens et al. modified to only use intensity metric
@@ -260,6 +275,9 @@ Func combine(Func im1, Func im2, int width, int height, Func dist) {
     return output;
 }
 
+/*
+ * brighten -- applies a specified gain to an image.
+ */
 Func brighten(Func input, float gain) {
 
     Func output("brighten_output");
@@ -271,7 +289,11 @@ Func brighten(Func input, float gain) {
     return output;
 }
 
-
+/*
+ * tone_map -- iteratively compresses the dynamic range and boosts the gain
+ * of the input. increases the compression and gain boost on each iteration
+ * to reduce initial errors in both.
+ */
 Func tone_map(Func input, int width, int height, float comp, float gain) {
 
     Func grayscale("grayscale");
@@ -364,6 +386,9 @@ Func desaturate_shadows(Func input) {
     return output;
 }
 
+/*
+ * median_filter -- applies a 2x2 median_filter to an image. Used as a helper for denoising via median-of-medians
+ */
 Func median_filter(Func input, int width, int height) {
 
     Func pass("median_filter_pass");
@@ -411,6 +436,10 @@ Func median_filter(Func input, int width, int height) {
     return output;
 }
 
+
+/*
+ * bilateral_filter -- applies a bilateral filter to the UV channels of a YUV image to reduce chromatic noise.
+ */
 Func bilateral_filter(Func input, int width, int height) {
     
     Func k("gauss_kernel");
@@ -469,6 +498,9 @@ Func bilateral_filter(Func input, int width, int height) {
     return output;
 }
 
+/*
+ * chroma_denoise -- reduces chromatic noise in an image through a combination of bilateral and median filtering.
+ */
 Func chroma_denoise(Func input, int width, int height, int num_passes) {
     
     Func output = rgb_to_yuv(input);
@@ -488,6 +520,9 @@ Func chroma_denoise(Func input, int width, int height, int num_passes) {
     return yuv_to_rgb(output);
 }
 
+/*
+ * srgb -- converts the linear rgb color profile to the sRGB color gamut.
+ */
 Func srgb(Func input) {
     
     Func srgb_matrix("srgb_matrix");
@@ -517,6 +552,11 @@ Func srgb(Func input) {
     return output;
 }
 
+/*
+ * contrast -- boosts the contrast of an image following a scaled cosine curve.
+ * Increasing the scale stretches the curve horizontally and decreases the 
+ * contrast boost
+ */
 Func contrast(Func input, float scale) {
 
     Func output("contrast_output");
@@ -545,6 +585,9 @@ Func contrast(Func input, float scale) {
     return output;
 }
 
+/*
+ * sharpen -- sharpens the image using difference of gaussian unsharp masking.
+ */
 Func sharpen(Func input) {
 
     Func output("sharpen_output");
@@ -569,6 +612,9 @@ Func sharpen(Func input) {
     return output;
 }
 
+/*
+ * interleaves the color channels to that the image can be written to a PNG
+ */
 Func u8bit_interleaved(Func input) {
 
     Func output("8bit_interleaved_output");
@@ -588,6 +634,11 @@ Func u8bit_interleaved(Func input) {
     return output;
 }
 
+/*
+ * finish -- Applies a series of standard local and global operations to a merged image to produce an attractive output with
+ * minimal user input. Takes advantage of noise-reduction through frame-merging to make dark details more distinguishable without
+ * blowing out highlights or introducing noise.
+ */
 Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
 
     // 1. Black-layer subtraction and white-layer scaling

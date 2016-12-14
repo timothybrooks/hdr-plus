@@ -9,12 +9,8 @@ using namespace Halide;
 using namespace Halide::ConciseCasts;
 
 /*
- * Returns an index to the nearest tile in the previous level of the pyramid.
- */
-inline Halide::Expr prev_tile(Halide::Expr t) { return (t - 1) / 4; }
-
-/*
- *
+ * align_layer -- determines the best offset for tiles of the image at a given resolution provided the offsets for
+ * the layer above.
  */
 Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max) {
 
@@ -25,9 +21,10 @@ Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max
     RDom r0(0, 16, 0, 16);              // reduction over pixels in tile
     RDom r1(-4, 8, -4, 8);              // reduction over search region; extent clipped to 8 for SIMD vectorization
 
-    // offset from the alignment of the previous layer, scaled to this layer
+    // offset from the alignment of the previous layer, scaled to this layer. Clamp to bound the amount of memory Halide
+    // allocates for the current alignment layer.
 
-    Point prev_offset = 4 * clamp(P(prev_alignment(prev_tile(tx), prev_tile(ty), n)), prev_min, prev_max);
+    Point prev_offset = DOWNSAMPLE_RATE * clamp(P(prev_alignment(prev_tile(tx), prev_tile(ty), n)), prev_min, prev_max);
 
     // indices into layer at a specific tile indices and offsets
 
@@ -64,7 +61,9 @@ Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max
 }
 
 /*
- *
+ * align -- Aligns multiple raw RGGB frames of a scene in T_SIZE x T_SIZE tiles which overlap
+ * by T_SIZE_2 in each dimension. align(imgs)(tile_x, tile_y, n) is a point representing the x and y offset
+ * for a tile in layer n that most closely matches that tile in the reference (relative to the reference tile's location)
  */
 Func align(const Image<uint16_t> imgs) {
 
@@ -89,12 +88,12 @@ Func align(const Image<uint16_t> imgs) {
     Point max_search = P(3, 3);
 
     Point min_3 = P(0, 0);
-    Point min_2 = 4 * min_3 + min_search;
-    Point min_1 = 4 * min_2 + min_search;
+    Point min_2 = DOWNSAMPLE_RATE * min_3 + min_search;
+    Point min_1 = DOWNSAMPLE_RATE * min_2 + min_search;
 
     Point max_3 = P(0, 0);
-    Point max_2 = 4 * max_3 + max_search;
-    Point max_1 = 4 * max_2 + max_search;
+    Point max_2 = DOWNSAMPLE_RATE * max_3 + max_search;
+    Point max_1 = DOWNSAMPLE_RATE * max_2 + max_search;
 
     // initial alignment of previous layer is 0, 0
 

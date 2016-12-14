@@ -9,7 +9,10 @@ using namespace Halide;
 using namespace Halide::ConciseCasts;
 
 /*
- *
+ * merge_temporal -- combines aligned tiles in the temporal dimension by
+ * weighting various frames based on their L1 distance to the reference frame's
+ * tile. Thresholds L1 scores so that tiles above a certain distance are completely
+ * discounted, and tiles below a certain distance are assumed to be perfectly aligned.
  */
 Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
 
@@ -46,9 +49,9 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
 
     // constants for determining strength and robustness of temporal merge
     
-    float factor = 5.f;                         // factor by which inverse function is elongated
-    int min_dist = 10;                          // pixel L1 distance below which weight is maximal
-    int max_dist = 500;                         // pixel L1 distance above which weight is zero
+    float factor = 4.f;                         // factor by which inverse function is elongated
+    int min_dist = 8;                           // pixel L1 distance below which weight is maximal
+    int max_dist = 300;                         // pixel L1 distance above which weight is zero
 
     // average L1 distance in tile and distance normalized to min and factor 
 
@@ -92,7 +95,8 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
 }
 
 /*
- *
+ * merge_spatial -- smoothly blends between half-overlapped tiles in the spatial 
+ * domain using a raised cosine filter.
  */
 Func merge_spatial(Func input) {
 
@@ -139,7 +143,8 @@ Func merge_spatial(Func input) {
 }
 
 /*
- *
+ * merge -- fully merges aligned frames in the temporal and spatial
+ * dimension to produce one denoised bayer frame.
  */
 Func merge(Image<uint16_t> imgs, Func alignment) {
 
