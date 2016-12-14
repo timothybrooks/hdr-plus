@@ -465,9 +465,8 @@ Func bilateral_filter(Func input, int width, int height) {
     RDom r(-3, 7, -3, 7);
 
     Func input_mirror = BoundaryConditions::mirror_interior(input, 0, width, 0, height);
-    Func blur_input = gauss_7x7(input, "bilateral_prefilter");
 
-    Expr dist = f32(i32(blur_input(x, y, c)) - i32(blur_input(x + dx, y + dy, c)));
+    Expr dist = f32(i32(input(x, y, c)) - i32(input(x + dx, y + dy, c)));
 
     float sig2 = 200.f;
     Expr score = exp(-dist * dist / sig2);
@@ -479,6 +478,7 @@ Func bilateral_filter(Func input, int width, int height) {
     bilateral(x, y, c) = sum(input_mirror(x + r.x, y + r.y, c) * weights(r.x, r.y, x, y, c)) / total_weights(x, y, c);
 
     output(x, y, c) = f32(input(x, y, c));
+
     output(x, y, 1) = bilateral(x, y, 1);
     output(x, y, 2) = bilateral(x, y, 2);
 
@@ -488,7 +488,7 @@ Func bilateral_filter(Func input, int width, int height) {
 
     k.parallel(dy).parallel(dx).compute_root();
 
-    weights.compute_at(output, y).vectorize(dx, 7);
+    weights.compute_at(output, x).vectorize(dx, 7);
 
     output.compute_root().parallel(y).vectorize(x, 16);
 
@@ -588,28 +588,30 @@ Func contrast(Func input, float scale) {
 /*
  * sharpen -- sharpens the image using difference of gaussian unsharp masking.
  */
-Func sharpen(Func input) {
+Func sharpen(Func input, float strength) {
 
-    Func output("sharpen_output");
+    Func output_yuv("sharpen_output_yuv");
 
     Var x, y, c;
 
-    Func large_blurred;
-    Func small_blurred;
-    Func difference_of_gauss;
+    Func yuv_input = rgb_to_yuv(input);
 
-    small_blurred = gauss_7x7(input, "unsharp_small_blur");
-    large_blurred = gauss_7x7(small_blurred, "unsharp_large_blur");
+    Func small_blurred = gauss_7x7(yuv_input, "unsharp_small_blur");
+    Func large_blurred = gauss_7x7(small_blurred, "unsharp_large_blur");
 
-    difference_of_gauss = diff(small_blurred, large_blurred, "unsharp_DoG");
+    Func difference_of_gauss = diff(small_blurred, large_blurred, "unsharp_DoG");
 
-    output(x, y, c) = u16(clamp(i32(input(x, y, c)) + 4 * difference_of_gauss(x, y, c), 0, 65535));
+    output_yuv(x, y, c) = yuv_input(x, y, c);
+    output_yuv(x, y, 0) = yuv_input(x, y, 0) + strength * difference_of_gauss(x, y, 0);
+
+    Func output = yuv_to_rgb(output_yuv);
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
     
-    //output.compute_root().parallel(y).vectorize(x, 16);
+
+    output_yuv.compute_root().parallel(y).vectorize(x, 16);
 
     return output;
 }
@@ -668,7 +670,7 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func contrast_output = contrast(gamma_correct_output, 1.f);
 
     // 9. Sharpening
-    Func sharpen_output = sharpen(contrast_output);
+    Func sharpen_output = sharpen(contrast_output, 4.f);
 
     // 10. Convert to 8 bit interleaved image
     return u8bit_interleaved(sharpen_output);
