@@ -260,39 +260,68 @@ Func combine(Func im1, Func im2, int width, int height, Func dist) {
     return output;
 }
 
-Func tone_map(Func input, int width, int height, int gain) {
+Func brighten(Func input, float gain) {
+
+    Func output("brighten_output");
+
+    Var x, y;
+
+    output(x, y) = u16_sat(gain * u32(input(x, y)));
+
+    return output;
+}
+
+
+Func tone_map(Func input, int width, int height, float comp, float gain) {
 
     Func grayscale("grayscale");
-    Func brighter("brighter_grayscale");
     Func normal_dist("luma_weight_distribution");
     Func output("tone_map_output");
     
     Var x, y, c, v;
     RDom r(0, 3);
 
-    // use grayscale and brighter grayscale images for exposure fusion
-
-    grayscale(x, y) = u16(sum(u32(input(x, y, r))) / 3);
-
-    brighter(x, y) = u16_sat(gain * u32(grayscale(x, y)));
-
-    // gamma correct before combining
-
-    Func gamma_grayscale = gamma_correct(grayscale);
-    Func gamma_brighter = gamma_correct(brighter);
-
     // distribution function (from exposure fusion paper)
     
     normal_dist(v) = f32(exp(-12.5f * pow(f32(v) / 65535.f - .5f, 2.f)));
 
-    // combine and invert gamma correction
+    // use grayscale and brighter grayscale images for exposure fusion
 
-    Func combine_output = combine(gamma_grayscale, gamma_brighter, width, height, normal_dist);
-    Func linear_combine_output = gamma_inverse(combine_output);
+    grayscale(x, y) = u16(sum(u32(input(x, y, r))) / 3);
+
+    // gamma correct before combining
+
+    Func bright("bright_grayscale");
+    Func dark("dark_grayscale");
+        
+    dark = grayscale;
+
+    int num_passes = 3;
+
+    float gain_const = 1.f + gain / num_passes;
+    float comp_const = 1.f + comp / num_passes;
+
+    float gain_slope = (gain - gain_const) / (num_passes - 1);
+    float comp_slope = (comp - comp_const) / (num_passes - 1);
+
+    for (int pass = 0; pass < num_passes; pass++) {
+
+        float norm_gain = pass * gain_slope + gain_const;
+        float norm_comp = pass * comp_slope + comp_const;
+
+        bright = brighten(dark, norm_comp);
+
+        Func dark_gamma = gamma_correct(dark);
+        Func bright_gamma = gamma_correct(bright);
+
+        dark_gamma = combine(dark_gamma, bright_gamma, width, height, normal_dist);
+
+        dark = brighten(gamma_inverse(dark_gamma), norm_gain);
+    }
 
     // reintroduce image color
 
-    output(x, y, c) = u16_sat(u32(input(x, y, c)) * u32(linear_combine_output(x, y)) / max(1, grayscale(x, y)));
+    output(x, y, c) = u16_sat(u32(input(x, y, c)) * u32(dark(x, y)) / max(1, grayscale(x, y)));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
@@ -301,6 +330,32 @@ Func tone_map(Func input, int width, int height, int gain) {
     grayscale.compute_root().parallel(y).vectorize(x, 16);
     
     normal_dist.compute_root().vectorize(v, 16);
+
+    return output;
+}
+
+Func median_filter(Func input, int width, int height, bool is_flipped) {
+
+    Func output("bilateral_filter_output");
+
+    Var x, y, c;
+    RDom r(-1, 2, -1, 2);
+
+    output(x, y, c) = input(x, y, c);
+
+    if (is_flipped) {
+        output(x, y, 1) = (sum(input(x - r.x, y - r.y, 1)) - maximum(input(x - r.x, y - r.y, 1)) - minimum(input(x - r.x, y - r.y, 1))) / 2;
+        output(x, y, 2) = (sum(input(x - r.x, y - r.y, 2)) - maximum(input(x - r.x, y - r.y, 2)) - minimum(input(x - r.x, y - r.y, 2))) / 2;
+    }
+    else {
+        output(x, y, 1) = (sum(input(x + r.x, y + r.y, 1)) - maximum(input(x + r.x, y + r.y, 1)) - minimum(input(x + r.x, y + r.y, 1))) / 2;
+        output(x, y, 2) = (sum(input(x + r.x, y + r.y, 2)) - maximum(input(x + r.x, y + r.y, 2)) - minimum(input(x + r.x, y + r.y, 2))) / 2;
+    }
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    output.update(0).parallel(y).vectorize(x, 16);
+    output.update(1).parallel(y).vectorize(x, 16);
 
     return output;
 }
@@ -315,7 +370,7 @@ Func bilateral_filter(Func input, int width, int height) {
 
     Var x, y, dx, dy, c;
 
-    //gaussian kernel
+    // gaussian kernel
 
     k(dx, dy) = f32(0.f);
 
@@ -330,10 +385,12 @@ Func bilateral_filter(Func input, int width, int height) {
     RDom r(-3, 7, -3, 7);
 
     Func input_mirror = BoundaryConditions::mirror_interior(input, 0, width, 0, height);
+    Func blur_input = gauss_7x7(input, "bilateral_prefilter");
 
-    Expr dist = f32(i32(input_mirror(x, y, c)) - i32(input_mirror(x + dx, y + dy, c))) / 65535.f;
+    Expr dist = f32(i32(blur_input(x, y, c)) - i32(blur_input(x + dx, y + dy, c)));
 
-    Expr score = f32(abs(1.f - dist));
+    float sig2 = 300.f;
+    Expr score = exp(-dist * dist / sig2);
 
     weights(dx, dy, x, y, c) = k(dx, dy) * score;
 
@@ -364,6 +421,12 @@ Func bilateral_filter(Func input, int width, int height) {
 Func chroma_denoise(Func input, int width, int height, int num_passes) {
     
     Func output = rgb_to_yuv(input);
+
+    for (int pass = 0; pass < num_passes; pass++) {
+
+        output = median_filter(output, width, height, false);
+        output = median_filter(output, width, height, true);
+    }
 
     for (int pass = 0; pass < num_passes; pass++) {
 
@@ -473,7 +536,7 @@ Func u8bit_interleaved(Func input) {
     return output;
 }
 
-Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb) {
+Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
 
     // 1. Black-layer subtraction and white-layer scaling
     Func black_white_point_output = black_white_point(Func(input), bp, wp);
@@ -485,13 +548,13 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, 1);
+    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, 10);
 
     // 5. sRGB color correction
     Func srgb_output = srgb(chroma_denoised_output);
     
     // 6. Tone mapping
-    Func tone_map_output = tone_map(tone_map(srgb_output, width, height, 2), width, height, 4);
+    Func tone_map_output = tone_map(srgb_output, width, height, c, g);
 
     // 7. Gamma correction
     Func gamma_correct_output = gamma_correct(tone_map_output);

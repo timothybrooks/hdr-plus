@@ -34,9 +34,11 @@ class HDRPlus {
         const BlackPoint bp;
         const WhitePoint wp;
         const WhiteBalance wb;
+        const Compression c;
+        const Gain g;
 
         // The reference image will always be the first image
-        HDRPlus(Image<uint16_t> imgs, BlackPoint bp, WhitePoint wp, WhiteBalance wb) : imgs(imgs), bp(bp), wp(wp), wb(wb) {
+        HDRPlus(Image<uint16_t> imgs, BlackPoint bp, WhitePoint wp, WhiteBalance wb, Compression c, Gain g) : imgs(imgs), bp(bp), wp(wp), wb(wb), c(c), g(g) {
 
             assert(imgs.dimensions() == 3);         // width * height * img_idx
             assert(imgs.width() == width);
@@ -51,7 +53,7 @@ class HDRPlus {
 
             Func alignment = align(imgs);
             Func merged = merge(imgs, alignment);
-            Func finished = finish(merged, width, height, bp, wp, wb);
+            Func finished = finish(merged, width, height, bp, wp, wb, c, g);
 
             ///////////////////////////////////////////////////////////////////////////
             // realize image
@@ -186,11 +188,13 @@ int main(int argc, char* argv[]) {
     //int ref_idx = HDRPlus::find_ref(imgs);
 
     // TODO: read these values from the reference image header (possibly using dcraw)
-    const WhiteBalance wb = {2.09863, 1, 1, 1.50391};   // r, g0, g1, b
+    const WhiteBalance wb = {1.3984, 1, 1, 2.415};   // r, g0, g1, b
     const BlackPoint bp = 2050;
     const WhitePoint wp = 15464;
+    const Compression c = 3.5f;
+    const Gain g = 1.2f;
 
-    HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb);
+    HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb, c, g);
 
     // This image has an RGB interleaved memory layout
     Image<uint8_t> output = hdr_plus.process();
