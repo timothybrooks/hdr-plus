@@ -351,8 +351,7 @@ Func bilateral_filter(Func input, int width, int height) {
 
     k.parallel(dy).parallel(dx).compute_root();
 
-
-    weights.compute_at(output, y).vectorize(x, 16);
+    weights.compute_at(output, y).vectorize(dx, 7);
 
     output.compute_root().parallel(y).vectorize(x, 16);
 
@@ -410,10 +409,16 @@ Func contrast(Func input, float scale) {
     Var x, y, c;
 
     float constant = 3.141592f / (2.f * scale);
-    float x_factor = 3.141592f / (scale * 65535.f);
     float sin_const = sin(constant);
+
+    float x_factor = 3.141592f / (scale * 65535.f);
+
+    float a = 65535.f / (2.f * sin_const);
+    float b = a * sin_const;
+
     Expr x_scaled = f32(input(x,y,c)) * x_factor;
-    output(x, y, c) = u16_sat(65535.f * (sin(x_scaled - constant) + sin_const) / (2.f * sin_const));
+
+    output(x, y, c) = u16_sat(a * sin(x_scaled - constant) + b);
 
 
     ///////////////////////////////////////////////////////////////////////////
@@ -426,23 +431,21 @@ Func contrast(Func input, float scale) {
 }
 
 Func sharpen(Func input) {
+
     Func output("sharpen_output");
-    Func blurred;
-    Func laplace;
-    return input;
 
     Var x, y, c;
 
-    blurred = gauss_7x7(input, "unsharp_blurred");
-    laplace = diff(input, blurred, "unsharp_laplace");
-    output(x, y, c) = u16(clamp(i32(input(x, y, c)) + laplace(x, y, c), 0, 65535));
+    Func blurred = gauss_7x7(input, "unsharp_blurred");
+    Func laplace = diff(input, blurred, "unsharp_laplace");
 
+    output(x, y, c) = u16(clamp(i32(input(x, y, c)) + laplace(x, y, c), 0, 65535));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
     
-    output.compute_root().parallel(y).vectorize(x, 16);
+    //output.compute_root().parallel(y).vectorize(x, 16);
 
     return output;
 }
@@ -478,7 +481,7 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, 3);
+    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, 1);
 
     // 5. sRGB color correction
     Func srgb_output = srgb(chroma_denoised_output);
