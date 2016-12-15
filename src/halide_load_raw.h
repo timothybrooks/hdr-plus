@@ -44,13 +44,13 @@ inline void swap_endian_16(uint16_t &value) {
 }
 
 template<Internal::CheckFunc check = Internal::CheckFail>
-bool load_raw(const std::string &filename, Image<uint16_t> *im) {
+bool load_raw(const std::string &filename, uint16_t* data, int width, int height) {
 
     /* open file and test for it being a pgm */
     Internal::PipeOpener f(("../tools/dcraw -c -D -6 -W -g 1 1 " + filename).c_str(), "r");
     if (!check(f.f != nullptr, "File %s could not be opened for reading\n", filename.c_str())) return false;
 
-    int width, height, maxval;
+    int in_width, in_height, maxval;
     char header[256];
     char buf[1024];
     bool fmt_binary = false;
@@ -62,18 +62,18 @@ bool load_raw(const std::string &filename, Image<uint16_t> *im) {
     if (!check(fmt_binary, "Input is not binary PGM\n")) return false;
 
     f.readLine(buf, 1024);
-    if (!check(sscanf(buf, "%d %d\n", &width, &height) == 2, "Could not read PGM width and height\n")) return false;
+    if (!check(sscanf(buf, "%d %d\n", &in_width, &in_height) == 2, "Could not read PGM width and height\n")) return false;
+
+    if (!check(in_width == width, "Input image '%s' has width %d, but must must have width of %d\n", filename.c_str(), in_width, width)) return false;
+
+    if (!check(in_height == height, "Input image '%s' has height %d, but must must have height of %d\n", filename.c_str(), in_height, height)) return false;
+
     f.readLine(buf, 1024);
     if (!check(sscanf(buf, "%d", &maxval) == 1, "Could not read PGM max value\n")) return false;
 
     if (!check(maxval == 65535, "Invalid bit depth (not 16 bits) in PGM\n")) return false;
 
-    uint16_t *data = new uint16_t[width * height];
-
-    if (!check(fread((void *) data, sizeof(uint16_t), width*height, f.f) == (size_t) (width*height), "Could not read PGM 16-bit data\n")) {
-        delete[] data;
-        return false;
-    }
+    if (!check(fread((void *) data, sizeof(uint16_t), width*height, f.f) == (size_t) (width*height), "Could not read PGM 16-bit data\n")) return false;
 
     if (is_little_endian()) {
         
@@ -84,12 +84,6 @@ bool load_raw(const std::string &filename, Image<uint16_t> *im) {
             }
         }
     }
-
-    Image<uint16_t> output(data, width, height); 
-
-    *im = output;
-
-    (*im)(0,0,0) = (*im)(0,0,0);      /* Mark dirty inside read/write functions. */
 
     return true;
 }

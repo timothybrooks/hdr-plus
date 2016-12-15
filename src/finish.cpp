@@ -7,7 +7,7 @@ using namespace Halide;
 using namespace Halide::ConciseCasts;
 
 /*
- * black_white_point -- Renormalizes an image based on input black and white
+ * black_white_level -- Renormalizes an image based on input black and white
  * levels to take advantage of the full 16-bit integer depth. This is a
  * necessary step for camera white balance levels to be valid.
  */
@@ -246,7 +246,7 @@ Func bilateral_filter(Func input, int width, int height) {
 }
 
 /*
- * chroma_denoise -- Reduces chromatic noise by blurring UV channels of a YUV
+ * desaturate_noise -- Reduces chromatic noise by blurring UV channels of a YUV
  * input in and using the result only if it falls within constraints on by what
  * factor and absolute threshold the chroma magnitudes fall.
  */
@@ -262,7 +262,7 @@ Func desaturate_noise(Func input, int width, int height) {
 
     // magnitude of chroma channel can increase by at most the factor
 
-    float factor = 1.2f;
+    float factor = 1.3f;
 
     // denoise will only be applied when input and output value are less than threshold
 
@@ -272,11 +272,32 @@ Func desaturate_noise(Func input, int width, int height) {
 
     output(x, y, 1) = select((abs(blur(x, y, 1)) / abs(input(x, y, 1)) < factor) &&
                              (abs(input(x, y, 1)) < threshold) && (abs(blur(x, y, 1)) < threshold),
-                             0.7f * blur(x, y, 1), input(x, y, 1));
+                             .7f * blur(x, y, 1) + .3f * input(x, y, 1), input(x, y, 1));
 
     output(x, y, 2) = select((abs(blur(x, y, 2)) / abs(input(x, y, 2)) < factor) &&
                              (abs(input(x, y, 2)) < threshold) && (abs(blur(x, y, 2)) < threshold),
-                             0.7f * blur(x, y, 2), input(x, y, 2));
+                             .7f * blur(x, y, 2) + .3f * input(x, y, 2), input(x, y, 2));
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
+/*
+ * increase_saturation -- Increases magnitude of UV channels for YUV input.
+ */
+Func increase_saturation(Func input, float strength) {
+
+    Func output("increase_saturation_output");
+
+    Var x, y, c;
+
+    output(x, y, c) = strength * input(x, y, c);
+    output(x, y, 0) = input(x, y, 0);
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
@@ -307,9 +328,11 @@ Func chroma_denoise(Func input, int width, int height, int num_passes) {
 
     while(pass < num_passes) {
 
-        output = desaturate_shadows(output, width, height);
+        output = desaturate_noise(output, width, height);
         pass++;
     }
+
+    if (num_passes > 1) output = increase_saturation(output, 1.3f);
 
     return yuv_to_rgb(output);
 }
@@ -538,10 +561,10 @@ Func srgb(Func input) {
 }
 
 /*
- * contrast -- Boosts the global contrast of an image following an S-shaped
- * scaled cosine curve.
+ * contrast -- Boosts the global contrast of an image with an S-shaped
+ * scaled cosine curve followed by black level subtraction and renormalization.
  */
-Func contrast(Func input, float strength) {
+Func contrast(Func input, float strength, int black_level) {
 
     Func output("contrast_output");
 
@@ -566,6 +589,12 @@ Func contrast(Func input, float strength) {
     // scaled cosine output produces S-shaped map over image values
 
     output(x, y, c) = u16_sat(slope * sin(val - inner_constant) + constant);
+
+    // subtract black level and scale
+
+    float white_scale = 65535.f / (65535.f - black_level);
+
+    output(x, y, c) = u16_sat((i32(output(x, y, c)) - black_level) * white_scale);
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
@@ -648,8 +677,9 @@ Func u8bit_interleaved(Func input) {
  */
 Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
 
-    int denoise_passes = 2;
+    int denoise_passes = 4;
     float contrast_strength = 4.f;
+    int black_level = 4000;
     float sharpen_strength = 6.f;
 
     // 1. Black-level subtraction and white-level scaling
@@ -682,7 +712,7 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
 
     // 8. Global contrast increase
 
-    Func contrast_output = contrast(gamma_correct_output, contrast_strength);
+    Func contrast_output = contrast(gamma_correct_output, contrast_strength, black_level);
 
     // 9. Sharpening
 

@@ -84,46 +84,19 @@ class HDRPlus {
 
             imgs = Image<uint16_t>(width, height, num_imgs);
 
+            uint16_t *data = imgs.data();
+
             for (int n = 0; n < num_imgs; n++) {
 
                 std::string img_name = img_names[n];
                 std::string img_path = dir_path + "/" + img_name;
 
-                Image<uint16_t> img;
-
-                if(!Tools::load_raw(img_path, &img)) {
+                if(!Tools::load_raw(img_path, data, width, height)) {
                     std::cerr << "Input image failed to load" << std::endl;
                     return false;
                 }
 
-                int img_width  = img.width();
-                int img_height = img.height();
-                
-                if (img.dimensions() != 2) {
-                    std::cerr << "Input image '" << img_name << "' has " << img.dimensions() << " dimensions, but must have exactly 2" << std::endl;
-                    return false;
-                }
-                if (img_width < width) {
-                    std::cerr << "Input image '" << img_name << "' has width " << img_width << ", but must must have width >= " << width << std::endl;
-                    return false;
-                }
-                if (img_height < height) {
-                    std::cerr << "Input image '" << img_name << "' has height " << img_height << ", but must have height >= " << height << std::endl;
-                    return false;
-                }
-
-                // offsets must be multiple of two to keep bayer pattern
-                // We crop the image here to simplify the rest of the pipeline.
-                // e.g. It's useful to have an image that is a multiple of half the tile size.
-                int x_offset = ((img_width  - width ) / 4) * 2;
-                int y_offset = ((img_height - height) / 4) * 2; 
-
-                for (int y = 0; y < height; y++) {
-                    for (int x = 0; x < width; x++) {
-
-                        imgs(x, y, n) = img(x_offset + x, y_offset + y);
-                    }
-                }
+                data += width * height;
             }
             return true;
         }
