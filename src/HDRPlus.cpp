@@ -29,8 +29,8 @@ class HDRPlus {
         // dimensions of pixel phone output images are 3036 x 4048
         // rounded down so both dimensions are a multiple of 16
         // which helps avoid corner cases in align and merge
-        static const int width = 4032;
-        static const int height = 3024;
+        static const int width = 5796;
+        static const int height = 3870;
 
         const BlackPoint bp;
         const WhitePoint wp;
@@ -209,8 +209,8 @@ int main(int argc, char* argv[]) {
     const WhiteBalance wb = {1.3984, 1, 1, 2.415};   // r, g0, g1, b
     const BlackPoint bp = 2050;
     const WhitePoint wp = 15464;
-    const Compression c = 5.2f;
-    const Gain g = 1.4f;
+    const Compression c = 3.8f;
+    const Gain g = 1.1f;
     //const Sharpness = 4.f;
 
     HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb, c, g);

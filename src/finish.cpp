@@ -1,19 +1,19 @@
 #include "finish.h"
 
 #include "Halide.h"
-#include "halide_image_io.h"
 #include "util.h"
 
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
 /*
- * black_white_point -- renormalizes an image based on a precomputed black and white
- * point to take advantage of the full 16-bit integer depth.
+ * black_white_point -- Renormalizes an image based on input black and white
+ * levels to take advantage of the full 16-bit integer depth. This is a
+ * necessary step for camera white balance levels to be valid.
  */
-Func black_white_point(Func input, const BlackPoint bp, const BlackPoint wp) {
+Func black_white_level(Func input, const BlackPoint bp, const BlackPoint wp) {
 
-    Func output("black_white_point_output");
+    Func output("black_white_level_output");
 
     Var x, y;
 
@@ -25,16 +25,16 @@ Func black_white_point(Func input, const BlackPoint bp, const BlackPoint wp) {
 }
 
 /*
- * white-balance -- white-balances the color channels of an image based on precomputed 
- * data stored with the RAW photo. Note that the two green channels in the bayer pattern
- * are white-balanced separately. 
+ * white_balance -- Corrects white-balance of a mosaicked image based on input 
+ * color multipliers. Note that the two green channels in the bayer pattern
+ * are white-balanced separately.
  */
 Func white_balance(Func input, int width, int height, const WhiteBalance &wb) {
 
     Func output("white_balance_output");
 
     Var x, y;
-    RDom r(0, width / 2, 0, height / 2);            // reduction over half of image
+    RDom r(0, width / 2, 0, height / 2);
 
     output(x, y) = u16(0);
 
@@ -58,13 +58,11 @@ Func white_balance(Func input, int width, int height, const WhiteBalance &wb) {
 }
 
 /*
- * demosaic -- interpolates missing color channels in the bayer mosaic based on the work of Malvar et. al described here:
- * https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Demosaicing_ICASSP04.pdf . Assumes that data is laid
- * out in an RGGB pattern.
+ * demosaic -- Interpolates color channels in the bayer mosaic based on the
+ * work of Malvar et al. Assumes that data is laid out in an RG/GB pattern.
+ * https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Demosaicing_ICASSP04.pdf
  */
 Func demosaic(Func input, int width, int height) {
-
-    // assumes RG/GB Bayer pattern
 
     Func f0("demosaic_f0");             // G at R locations; G at B locations
     Func f1("demosaic_f1");             // R at green in R row, B column; B at green in B row, R column
@@ -79,8 +77,8 @@ Func demosaic(Func input, int width, int height) {
     Func output("demosaic_output");
 
     Var x, y, c;
-    RDom r0(-2, 5, -2, 5);                          // reduction over weights in filter
-    RDom r1(0, width / 2, 0, height / 2);           // reduction over half of image
+    RDom r0(-2, 5, -2, 5);
+    RDom r1(0, width / 2, 0, height / 2);
 
     // mirror input image with overlapping edges to keep mosaic pattern consistency
 
@@ -176,13 +174,213 @@ Func demosaic(Func input, int width, int height) {
 }
 
 /*
- * combine -- combines two greyscale images with a laplacian pyramid by using the given 
- * distribution function to weight the images relative to each other.
+ * median_filter -- Applies an approximate 3x3 median filter by compputing the
+ * 2x2 median of overlapping 2x2 medians. This approximation is used to save
+ * performance time.
+ */
+Func median_filter(Func input, int width, int height) {
+
+    Func pass("median_filter_pass");
+    Func output("median_filter_output");
+
+    Var x, y, c;
+    RDom r(-1, 2, -1, 2);
+
+    Func input_mirror = BoundaryConditions::mirror_image(input, 0, width, 0, height);
+
+    // first pass of 2x2 median filter
+
+    pass(x, y, c) = input(x, y, c);
+
+    pass(x, y, 1) = (sum(input_mirror(x - r.x, y - r.y, 1))
+                   - maximum(input_mirror(x - r.x, y - r.y, 1))
+                   - minimum(input_mirror(x - r.x, y - r.y, 1))) / 2;
+
+    pass(x, y, 2) = (sum(input_mirror(x - r.x, y - r.y, 2))
+                   - maximum(input_mirror(x - r.x, y - r.y, 2))
+                   - minimum(input_mirror(x - r.x, y - r.y, 2))) / 2;
+
+    // second pass of 2x2 median filter, in opposite direction
+
+    output(x, y, c) = pass(x, y, c);
+
+    output(x, y, 1) = (sum(pass(x + r.x, y + r.y, 1))
+                     - maximum(pass(x + r.x, y + r.y, 1))
+                     - minimum(pass(x + r.x, y + r.y, 1))) / 2;
+
+    output(x, y, 2) = (sum(pass(x + r.x, y + r.y, 2))
+                     - maximum(pass(x + r.x, y + r.y, 2))
+                     - minimum(pass(x + r.x, y + r.y, 2))) / 2;
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    pass.compute_root().parallel(y).vectorize(x, 16);
+
+    pass.update(0).parallel(y).vectorize(x, 16);
+    pass.update(1).parallel(y).vectorize(x, 16);
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    output.update(0).parallel(y).vectorize(x, 16);
+    output.update(1).parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
+
+/*
+ * bilateral_filter -- Applies a 7x7 bilateral filter to the UV channels of a
+ * YUV input to reduce chromatic noise. Chroma values above a threshold are
+ * weighted as 0 to decrease amplification of saturation artifacts, which can
+ * occur around bright highlights.
+ */
+Func bilateral_filter(Func input, int width, int height) {
+    
+    Func k("gauss_kernel");
+    Func weights("bilateral_weights");
+    Func total_weights("bilateral_total_weights");
+    Func bilateral("bilateral");
+    Func output("bilateral_filter_output");
+
+    Var x, y, dx, dy, c;
+    RDom r(-3, 7, -3, 7);
+
+    // gaussian kernel
+
+    k(dx, dy) = f32(0.f);
+
+    k(-3, -3) = 0.000690f; k(-2, -3) = 0.002646f; k(-1, -3) = 0.005923f; k(0, -3) = 0.007748f; k(1, -3) = 0.005923f; k(2, -3) = 0.002646f; k(3, -3) = 0.000690f;
+    k(-3, -2) = 0.002646f; k(-2, -2) = 0.010149f; k(-1, -2) = 0.022718f; k(0, -2) = 0.029715f; k(1, -2) = 0.022718f; k(2, -2) = 0.010149f; k(3, -2) = 0.002646f;
+    k(-3, -1) = 0.005923f; k(-2, -1) = 0.022718f; k(-1, -1) = 0.050855f; k(0, -1) = 0.066517f; k(1, -1) = 0.050855f; k(2, -1) = 0.022718f; k(3, -1) = 0.005923f;
+    k(-3,  0) = 0.007748f; k(-2,  0) = 0.029715f; k(-1,  0) = 0.066517f; k(0,  0) = 0.087001f; k(1,  0) = 0.066517f; k(2,  0) = 0.029715f; k(3,  0) = 0.007748f;
+    k(-3,  1) = 0.005923f; k(-2,  1) = 0.022718f; k(-1,  1) = 0.050855f; k(0,  1) = 0.066517f; k(1,  1) = 0.050855f; k(2,  1) = 0.022718f; k(3,  1) = 0.005923f;
+    k(-3,  2) = 0.002646f; k(-2,  2) = 0.010149f; k(-1,  2) = 0.022718f; k(0,  2) = 0.029715f; k(1,  2) = 0.022718f; k(2,  2) = 0.010149f; k(3,  2) = 0.002646f;
+    k(-3,  3) = 0.000690f; k(-2,  3) = 0.002646f; k(-1,  3) = 0.005923f; k(0,  3) = 0.007748f; k(1,  3) = 0.005923f; k(2,  3) = 0.002646f; k(3,  3) = 0.000690f;
+
+    Func input_mirror = BoundaryConditions::mirror_interior(input, 0, width, 0, height);
+
+    Expr dist = f32(i32(input_mirror(x, y, c)) - i32(input_mirror(x + dx, y + dy, c)));
+
+    float sig2 = 100.f;                 // 2 * sigma ^ 2
+
+    // score represents the weight contribution due to intensity difference
+
+    Expr score = select(input_mirror(x + dx, y + dy, c) > 25000, 0.f, exp(-dist * dist / sig2));
+
+    // combine score with gaussian weights and compute total weights in search region
+
+    weights(dx, dy, x, y, c) = k(dx, dy) * score;
+
+    total_weights(x, y, c) = sum(weights(r.x, r.y, x, y, c));
+
+    // output normalizes weights to total weights
+
+    bilateral(x, y, c) = sum(input_mirror(x + r.x, y + r.y, c) * weights(r.x, r.y, x, y, c)) / total_weights(x, y, c);
+
+    output(x, y, c) = f32(input(x, y, c));
+
+    output(x, y, 1) = bilateral(x, y, 1);
+    output(x, y, 2) = bilateral(x, y, 2);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    k.parallel(dy).parallel(dx).compute_root();
+
+    weights.compute_at(output, y).vectorize(x, 16);
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    output.update(0).parallel(y).vectorize(x, 16);
+    output.update(1).parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
+/*
+ * chroma_denoise -- Reduces chromatic noise by blurring UV channels of a YUV
+ * input in the shadows of an image. The noise removal is more aggresive the
+ * darker the region is (since signal strength of input is lower). The noise
+ * removal will only decrease saturation.
+ */
+Func desaturate_shadows(Func input, int width, int height) {
+
+    Func output("desaturate_shadows_output");
+
+    Var x, y, c;
+
+    Func input_mirror = BoundaryConditions::mirror_image(input, 0, width, 0, height);
+
+    Func blur = gauss_15x15(gauss_15x15(input_mirror, "desaturate_shadows_blur1"), "desaturate_shadows_blur2");
+
+    // threshold values below which to start denoising
+
+    float threshold = 12000.f;
+
+    // noise removal amount is inversely proportional to luma (dark regions more aggrssively denoised)
+
+    Expr factor = clamp(input(x, y, 0) / threshold - 0.3f, 0.3f, 1.f);
+
+    // only use denoised value if chroma magnitude has decreased (dark region is less saturated)
+
+    output(x, y, c) = input(x, y, c);
+
+    output(x, y, 1) = min(abs(factor * output(x, y, 1) + (1.f - factor) * blur(x, y, 1)), abs(input(x, y, 1))) * input(x, y, 1) / abs(input(x, y, 1));
+    output(x, y, 2) = min(abs(factor * output(x, y, 2) + (1.f - factor) * blur(x, y, 2)), abs(input(x, y, 2))) * input(x, y, 2) / abs(input(x, y, 2));
+
+    ///////////////////////////////////////////////////////////////////////////
+    // schedule
+    ///////////////////////////////////////////////////////////////////////////
+
+    output.compute_root().parallel(y).vectorize(x, 16);
+
+    return output;
+}
+
+/*
+ * chroma_denoise -- Reduces chromatic noise in an image through a combination
+ * median filtering, bilateral filtering and shadow desaturation. The noise
+ * removal algorithms will be applied iteratively in order of increasing 
+ * aggressiveness, with the total number of passes determined by input.
+ */
+Func chroma_denoise(Func input, int width, int height, int num_passes) {
+    
+    Func output = rgb_to_yuv(input);
+
+    int pass = 0;
+
+    if (pass < num_passes) {
+
+        output = median_filter(output, width, height);
+        pass++;
+    }
+
+    if (pass < num_passes) {
+
+        output = bilateral_filter(output, width, height);
+        pass++;
+    }
+
+    while(pass < num_passes) {
+
+        output = desaturate_shadows(output, width, height);
+        pass++;
+    }
+
+    return yuv_to_rgb(output);
+}
+
+/*
+ * combine -- Combines two greyscale inputs with a laplacian pyramid by using
+ * the input distribution function to weight inputs relative to each other.
+ * This technique is a modified version of the exposure fusion method described
+ * by Mertens et al.
+ * http://ntp-0.cs.ucl.ac.uk/staff/j.kautz/publications/exposure_fusion.pdf
  */
 Func combine(Func im1, Func im2, int width, int height, Func dist) {
-
-    // exposure fusion as described by Mertens et al. modified to only use intensity metric
-    // http://ntp-0.cs.ucl.ac.uk/staff/j.kautz/publications/exposure_fusion.pdf
 
     Func init_mask1("mask1_layer_0");
     Func init_mask2("mask2_layer_0");
@@ -276,7 +474,7 @@ Func combine(Func im1, Func im2, int width, int height, Func dist) {
 }
 
 /*
- * brighten -- applies a specified gain to an image.
+ * brighten -- Applies a specified gain to an input.
  */
 Func brighten(Func input, float gain) {
 
@@ -290,14 +488,15 @@ Func brighten(Func input, float gain) {
 }
 
 /*
- * tone_map -- iteratively compresses the dynamic range and boosts the gain
- * of the input. increases the compression and gain boost on each iteration
- * to reduce initial errors in both.
+ * tone_map -- Iteratively compresses the dynamic range and boosts the gain
+ * of the input. Compression and gain are determined by input and are applied
+ * with an increasing strength in each iteration to ensure a natural looking
+ * dynamic range compression.
  */
 Func tone_map(Func input, int width, int height, float comp, float gain) {
 
-    Func grayscale("grayscale");
     Func normal_dist("luma_weight_distribution");
+    Func grayscale("grayscale");
     Func output("tone_map_output");
     
     Var x, y, c, v;
@@ -311,31 +510,41 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
 
     grayscale(x, y) = u16(sum(u32(input(x, y, r))) / 3);
 
-    // gamma correct before combining
+    Func bright, dark;
 
-    Func bright("bright_grayscale");
-    Func dark("dark_grayscale");
-        
     dark = grayscale;
 
-    int num_passes = 2;
+    // more passes and smaller compression and gain values produces more natural results
+
+    int num_passes = 3;
+
+    // constants used to determine compression and gain values at each iteration
 
     float comp_const = 1.f + comp / num_passes;
+    float gain_const = 1.f + gain / num_passes;
 
     float comp_slope = (comp - comp_const) / (num_passes - 1);
+    float gain_slope = (gain - gain_const) / (num_passes - 1);
 
     for (int pass = 0; pass < num_passes; pass++) {
 
+        // compute compression and gain at given iteration
+
         float norm_comp = pass * comp_slope + comp_const;
+        float norm_gain = pass * gain_slope + gain_const;
 
         bright = brighten(dark, norm_comp);
+
+        // gamma correct before fusion
 
         Func dark_gamma = gamma_correct(dark);
         Func bright_gamma = gamma_correct(bright);
 
         dark_gamma = combine(dark_gamma, bright_gamma, width, height, normal_dist);
 
-        dark = brighten(gamma_inverse(dark_gamma), gain);
+        // invert gamma correction and apply gain
+
+        dark = brighten(gamma_inverse(dark_gamma), norm_gain);
     }
 
     // reintroduce image color
@@ -353,175 +562,10 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
     return output;
 }
 
-Func desaturate_shadows(Func input) {
-
-    Func output("desaturate_shadows_output");
-
-    Var x, y, c;
-
-    float threshold = 300;
-    float factor = 0.8;
-
-    Func blur = gauss_7x7(input, "desaturate_shadows_blur");
-
-    output(x, y, c) = input(x, y, c);
-
-    output(x, y, 1) = select(blur(x, y, 0) < threshold,
-                             factor * pow(abs(input(x, y, 1)), abs(blur(x, y, 0)) / threshold) * input(x, y, 1) / abs(input(x, y, 1)) + (1 - factor) * input(x, y, 1),
-                             input(x, y, 1));
-
-    output(x, y, 2) = select(blur(x, y, 0) < threshold,
-                             factor * pow(abs(input(x, y, 2)), abs(blur(x, y, 0)) / threshold) * input(x, y, 2) / abs(input(x, y, 2)) + (1 - factor) * input(x, y, 2),
-                             input(x, y, 2));
-
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    output.compute_root().parallel(y).vectorize(x, 16);
-
-    output.update(0).parallel(y).vectorize(x, 16);
-    output.update(1).parallel(y).vectorize(x, 16);
-
-    return output;
-}
-
 /*
- * median_filter -- applies a 2x2 median_filter to an image. Used as a helper for denoising via median-of-medians
- */
-Func median_filter(Func input, int width, int height) {
-
-    Func pass("median_filter_pass");
-    Func output("median_filter_output");
-
-    Var x, y, c;
-    RDom r(-1, 2, -1, 2);
-
-    Func input_mirror = BoundaryConditions::mirror_image(input, 0, width, 0, height);
-
-    pass(x, y, c) = input(x, y, c);
-
-    pass(x, y, 1) = (sum(input_mirror(x - r.x, y - r.y, 1))
-                   - maximum(input_mirror(x - r.x, y - r.y, 1))
-                   - minimum(input_mirror(x - r.x, y - r.y, 1))) / 2;
-
-    pass(x, y, 2) = (sum(input_mirror(x - r.x, y - r.y, 2))
-                   - maximum(input_mirror(x - r.x, y - r.y, 2))
-                   - minimum(input_mirror(x - r.x, y - r.y, 2))) / 2;
-
-    output(x, y, c) = pass(x, y, c);
-
-    output(x, y, 1) = (sum(pass(x + r.x, y + r.y, 1))
-                     - maximum(pass(x + r.x, y + r.y, 1))
-                     - minimum(pass(x + r.x, y + r.y, 1))) / 2;
-
-    output(x, y, 2) = (sum(pass(x + r.x, y + r.y, 2))
-                     - maximum(pass(x + r.x, y + r.y, 2))
-                     - minimum(pass(x + r.x, y + r.y, 2))) / 2;
-
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    pass.compute_root().parallel(y).vectorize(x, 16);
-
-    pass.update(0).parallel(y).vectorize(x, 16);
-    pass.update(1).parallel(y).vectorize(x, 16);
-
-    output.compute_root().parallel(y).vectorize(x, 16);
-
-    output.update(0).parallel(y).vectorize(x, 16);
-    output.update(1).parallel(y).vectorize(x, 16);
-
-    return output;
-}
-
-
-/*
- * bilateral_filter -- applies a bilateral filter to the UV channels of a YUV image to reduce chromatic noise.
- */
-Func bilateral_filter(Func input, int width, int height) {
-    
-    Func k("gauss_kernel");
-    Func weights("bilateral_weights");
-    Func total_weights("bilateral_total_weights");
-    Func bilateral("bilateral");
-    Func output("bilateral_filter_output");
-
-    Var x, y, dx, dy, c;
-
-    // gaussian kernel
-
-    k(dx, dy) = f32(0.f);
-
-    k(-3, -3) = 0.000690f; k(-2, -3) = 0.002646f; k(-1, -3) = 0.005923f; k(0, -3) = 0.007748f; k(1, -3) = 0.005923f; k(2, -3) = 0.002646f; k(3, -3) = 0.000690f;
-    k(-3, -2) = 0.002646f; k(-2, -2) = 0.010149f; k(-1, -2) = 0.022718f; k(0, -2) = 0.029715f; k(1, -2) = 0.022718f; k(2, -2) = 0.010149f; k(3, -2) = 0.002646f;
-    k(-3, -1) = 0.005923f; k(-2, -1) = 0.022718f; k(-1, -1) = 0.050855f; k(0, -1) = 0.066517f; k(1, -1) = 0.050855f; k(2, -1) = 0.022718f; k(3, -1) = 0.005923f;
-    k(-3,  0) = 0.007748f; k(-2,  0) = 0.029715f; k(-1,  0) = 0.066517f; k(0,  0) = 0.087001f; k(1,  0) = 0.066517f; k(2,  0) = 0.029715f; k(3,  0) = 0.007748f;
-    k(-3,  1) = 0.005923f; k(-2,  1) = 0.022718f; k(-1,  1) = 0.050855f; k(0,  1) = 0.066517f; k(1,  1) = 0.050855f; k(2,  1) = 0.022718f; k(3,  1) = 0.005923f;
-    k(-3,  2) = 0.002646f; k(-2,  2) = 0.010149f; k(-1,  2) = 0.022718f; k(0,  2) = 0.029715f; k(1,  2) = 0.022718f; k(2,  2) = 0.010149f; k(3,  2) = 0.002646f;
-    k(-3,  3) = 0.000690f; k(-2,  3) = 0.002646f; k(-1,  3) = 0.005923f; k(0,  3) = 0.007748f; k(1,  3) = 0.005923f; k(2,  3) = 0.002646f; k(3,  3) = 0.000690f;
-
-    RDom r(-3, 7, -3, 7);
-
-    Func input_mirror = BoundaryConditions::mirror_interior(input, 0, width, 0, height);
-
-    Expr dist = f32(i32(input(x, y, c)) - i32(input(x + dx, y + dy, c)));
-
-    float sig2 = 200.f;
-    Expr score = exp(-dist * dist / sig2);
-
-    weights(dx, dy, x, y, c) = k(dx, dy) * score;
-
-    total_weights(x, y, c) = sum(weights(r.x, r.y, x, y, c));
-
-    bilateral(x, y, c) = sum(input_mirror(x + r.x, y + r.y, c) * weights(r.x, r.y, x, y, c)) / total_weights(x, y, c);
-
-    output(x, y, c) = f32(input(x, y, c));
-
-    output(x, y, 1) = bilateral(x, y, 1);
-    output(x, y, 2) = bilateral(x, y, 2);
-
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    k.parallel(dy).parallel(dx).compute_root();
-
-    weights.compute_at(output, x).vectorize(dx, 7);
-
-    output.compute_root().parallel(y).vectorize(x, 16);
-
-    output.update(0).parallel(y).vectorize(x, 16);
-    output.update(1).parallel(y).vectorize(x, 16);
-
-    return output;
-}
-
-/*
- * chroma_denoise -- reduces chromatic noise in an image through a combination of bilateral and median filtering.
- */
-Func chroma_denoise(Func input, int width, int height, int num_passes) {
-    
-    Func output = rgb_to_yuv(input);
-
-    for (int pass = 0; pass < num_passes; pass++) {
-
-        output = median_filter(output, width, height);
-    }
-
-    output = desaturate_shadows(output);
-
-    for (int pass = 0; pass < num_passes; pass++) {
-
-        output = bilateral_filter(output, width, height);
-    }
-
-    return yuv_to_rgb(output);
-}
-
-/*
- * srgb -- converts the linear rgb color profile to the sRGB color gamut.
+ * srgb -- Converts to linear sRGB color profile. Conversion values taken from
+ * dcraw sRGB profile conversion.
+ * https://www.cybercom.net/~dcoffin/dcraw/
  */
 Func srgb(Func input) {
     
@@ -529,9 +573,9 @@ Func srgb(Func input) {
     Func output("srgb_output");
 
     Var x, y, c;
-    RDom r(0, 3);               // reduction over color channels
+    RDom r(0, 3);
 
-    // srgb conversion matrix; values taken from dcraw sRGB profile conversion
+    // srgb conversion matrix; 
 
     srgb_matrix(x, y) = 0.f;
 
@@ -553,28 +597,34 @@ Func srgb(Func input) {
 }
 
 /*
- * contrast -- boosts the contrast of an image following a scaled cosine curve.
- * Increasing the scale stretches the curve horizontally and decreases the 
- * contrast boost
+ * contrast -- Boosts the global contrast of an image following an S-shaped
+ * scaled cosine curve.
  */
-Func contrast(Func input, float scale) {
+Func contrast(Func input, float strength) {
 
     Func output("contrast_output");
 
     Var x, y, c;
 
-    float constant = 3.141592f / (2.f * scale);
-    float sin_const = sin(constant);
+    // scale stretches the curve horizontally, decreasing the amount of contrast
 
-    float x_factor = 3.141592f / (scale * 65535.f);
+    float scale = 0.8f + 0.3f / std::min(1.f, strength);
 
-    float a = 65535.f / (2.f * sin_const);
-    float b = a * sin_const;
+    // constants for scaling cosine curve to the domain/range of image values
 
-    Expr x_scaled = f32(input(x,y,c)) * x_factor;
+    float inner_constant = 3.141592f / (2.f * scale);
+    float sin_constant = sin(inner_constant);
 
-    output(x, y, c) = u16_sat(a * sin(x_scaled - constant) + b);
+    float slope = 65535.f / (2.f * sin_constant);
+    float constant = slope * sin_constant;
 
+    float factor = 3.141592f / (scale * 65535.f);
+
+    Expr val = factor * f32(input(x, y, c));
+
+    // scaled cosine output produces S-shaped map over image values
+
+    output(x, y, c) = u16_sat(slope * sin(val - inner_constant) + constant);
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
@@ -586,7 +636,8 @@ Func contrast(Func input, float scale) {
 }
 
 /*
- * sharpen -- sharpens the image using difference of gaussian unsharp masking.
+ * sharpen -- Sharpens input using difference of Gaussian unsharp masking
+ * applied only to the image luminance so as to not amplify chroma noise.
  */
 Func sharpen(Func input, float strength) {
 
@@ -594,22 +645,29 @@ Func sharpen(Func input, float strength) {
 
     Var x, y, c;
 
+    // convert to yuv
+
     Func yuv_input = rgb_to_yuv(input);
+
+    // apply two gaussian passes
 
     Func small_blurred = gauss_7x7(yuv_input, "unsharp_small_blur");
     Func large_blurred = gauss_7x7(small_blurred, "unsharp_large_blur");
+
+    // add difference of gaussians to Y channel
 
     Func difference_of_gauss = diff(small_blurred, large_blurred, "unsharp_DoG");
 
     output_yuv(x, y, c) = yuv_input(x, y, c);
     output_yuv(x, y, 0) = yuv_input(x, y, 0) + strength * difference_of_gauss(x, y, 0);
 
+    // convert back to rgb
+
     Func output = yuv_to_rgb(output_yuv);
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
-    
 
     output_yuv.compute_root().parallel(y).vectorize(x, 16);
 
@@ -617,7 +675,8 @@ Func sharpen(Func input, float strength) {
 }
 
 /*
- * interleaves the color channels to that the image can be written to a PNG
+ * u8bit_interleaved -- Converts to 8 bits and interleaves color channels so
+ * output can be easily written to an output file.
  */
 Func u8bit_interleaved(Func input) {
 
@@ -639,39 +698,54 @@ Func u8bit_interleaved(Func input) {
 }
 
 /*
- * finish -- Applies a series of standard local and global operations to a merged image to produce an attractive output with
- * minimal user input. Takes advantage of noise-reduction through frame-merging to make dark details more distinguishable without
- * blowing out highlights or introducing noise.
+ * finish -- Applies a series of standard local and global image processing
+ * operations to an input mosaicked image, producing a pleasant color output.
+ * Input pecifies black-level, white-level and white balance. Additionally,
+ * tone mapping is applied to the image, as specified by the input compression
+ * and gain amounts. This produces natural-looking brightened shadows, without
+ * blowing out highlights. The output values are 8-bit.
  */
 Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
 
-    // 1. Black-layer subtraction and white-layer scaling
-    Func black_white_point_output = black_white_point(Func(input), bp, wp);
+    int denoise_passes = 5;
+    float contrast_strength = 4.f;
+    float sharpen_strength = 6.f;
+
+    // 1. Black-level subtraction and white-level scaling
+
+    Func black_white_level_output = black_white_level(Func(input), bp, wp);
 
     // 2. White balancing
-    Func white_balance_output = white_balance(black_white_point_output, width, height, wb);
+
+    Func white_balance_output = white_balance(black_white_level_output, width, height, wb);
 
     // 3. Demosaicking
+
     Func demosaic_output = demosaic(white_balance_output, width, height);
 
     // 4. Chroma denoising
-    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, 1);
+
+    Func chroma_denoised_output = chroma_denoise(demosaic_output, width, height, denoise_passes);
 
     // 5. sRGB color correction
+
     Func srgb_output = srgb(chroma_denoised_output);
     
     // 6. Tone mapping
+
     Func tone_map_output = tone_map(srgb_output, width, height, c, g);
 
     // 7. Gamma correction
+
     Func gamma_correct_output = gamma_correct(tone_map_output);
 
     // 8. Global contrast increase
-    Func contrast_output = contrast(gamma_correct_output, 1.f);
+
+    Func contrast_output = contrast(gamma_correct_output, contrast_strength);
 
     // 9. Sharpening
-    Func sharpen_output = sharpen(contrast_output, 4.f);
 
-    // 10. Convert to 8 bit interleaved image
+    Func sharpen_output = sharpen(contrast_output, sharpen_strength);
+
     return u8bit_interleaved(sharpen_output);
 }
