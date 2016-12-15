@@ -10,13 +10,9 @@
 
 using namespace Halide;
 
-// TODO: error handling should be more robust
-// To check invariants we currently use assertions.
-
 /*
- * HDRPlus Class -- houses file I/O and calls stages of the main pipeline.
- * Also defines attributes specific to our implementation such as the static
- * cropped image dimensions
+ * HDRPlus Class -- Houses file I/O, defines pipeline attributes and calls
+ * processes main stages of the pipeline.
  */
 class HDRPlus {
 
@@ -27,8 +23,7 @@ class HDRPlus {
     public:
 
         // dimensions of pixel phone output images are 3036 x 4048
-        // rounded down so both dimensions are a multiple of 16
-        // which helps avoid corner cases in align and merge
+
         static const int width = 5796;
         static const int height = 3870;
 
@@ -38,7 +33,6 @@ class HDRPlus {
         const Compression c;
         const Gain g;
 
-        // The reference image will always be the first image
         HDRPlus(Image<uint16_t> imgs, BlackPoint bp, WhitePoint wp, WhiteBalance wb, Compression c, Gain g) : imgs(imgs), bp(bp), wp(wp), wb(wb), c(c), g(g) {
 
             assert(imgs.dimensions() == 3);         // width * height * img_idx
@@ -48,12 +42,9 @@ class HDRPlus {
         }
 
         /*
-         * process -- calls all of the main stages of the pipeline aside from file I/O
+         * process -- Calls all of the main stages (align, merge, finish) of the pipeline.
          */
         Image<uint8_t> process() {
-
-            // These three steps of the pipeline will be defined in the other cpp files for our own organization.
-            // In the future we can decide if it is better to include them in this class
 
             Func alignment = align(imgs);
             Func merged = merge(imgs, alignment);
@@ -76,7 +67,7 @@ class HDRPlus {
         }
 
         /*
-         * load_raws -- load in a vector of CR2 (Canon Raw) files and verify that they all have the same dimensions
+         * load_raws -- Loads CR2 (Canon Raw) files into a Halide Image.
          */
         static bool load_raws(std::string dir_path, std::vector<std::string> &img_names, Image<uint16_t> &imgs) {
 
@@ -92,6 +83,7 @@ class HDRPlus {
                 std::string img_path = dir_path + "/" + img_name;
 
                 if(!Tools::load_raw(img_path, data, width, height)) {
+
                     std::cerr << "Input image failed to load" << std::endl;
                     return false;
                 }
@@ -102,7 +94,7 @@ class HDRPlus {
         }
 
         /*
-         * save_png -- writes processed image to specified img_name
+         * save_png -- Writes an interleaved Halide image to an output file.
          */
         static bool save_png(std::string dir_path, std::string img_name, Image<uint8_t> &img) {
 
@@ -111,7 +103,9 @@ class HDRPlus {
             std::remove(img_path.c_str());
 
             int stride_in_bytes = img.width() * img.channels();
+
             if(!stbi_write_png(img_path.c_str(), img.width(), img.height(), img.channels(), img.data(), stride_in_bytes)) {
+
                 std::cerr << "Unable to write output image '" << img_name << "'" << std::endl;
                 return false;
             }
@@ -120,6 +114,9 @@ class HDRPlus {
         }
 };
 
+/*
+ * read_white_balance -- Reads white balance multipliers from file and returns WhiteBalance.
+ */
 const WhiteBalance read_white_balance(std::string file_path) {
 
     Tools::Internal::PipeOpener f(("../tools/dcraw -v -i " + file_path).c_str(), "r");
@@ -191,13 +188,12 @@ int main(int argc, char* argv[]) {
 
     if(!HDRPlus::load_raws(dir_path, in_names, imgs)) return -1;
 
-    const WhiteBalance wb = read_white_balance(dir_path + in_names[0]);
+    const WhiteBalance wb = read_white_balance(dir_path + "/" + in_names[0]);
     const BlackPoint bp = 2050;
     const WhitePoint wp = 15464;
 
     HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb, c, g);
 
-    // This image has an RGB interleaved memory layout
     Image<uint8_t> output = hdr_plus.process();
     
     if(!HDRPlus::save_png(dir_path, out_name, output)) return -1;

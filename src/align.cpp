@@ -53,7 +53,7 @@ Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    scores.compute_root().parallel(ty).vectorize(xi, 8);
+    scores.compute_at(alignment, tx).vectorize(xi, 8);
 
     alignment.compute_root().parallel(ty).vectorize(tx, 16);
 
