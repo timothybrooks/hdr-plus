@@ -679,7 +679,7 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
 
     int denoise_passes = 4;
     float contrast_strength = 4.f;
-    int black_level = 4000;
+    int black_level = 5000;
     float sharpen_strength = 6.f;
 
     // 1. Black-level subtraction and white-level scaling

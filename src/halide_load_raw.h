@@ -46,7 +46,6 @@ inline void swap_endian_16(uint16_t &value) {
 template<Internal::CheckFunc check = Internal::CheckFail>
 bool load_raw(const std::string &filename, uint16_t* data, int width, int height) {
 
-    /* open file and test for it being a pgm */
     Internal::PipeOpener f(("../tools/dcraw -c -D -6 -W -g 1 1 " + filename).c_str(), "r");
     if (!check(f.f != nullptr, "File %s could not be opened for reading\n", filename.c_str())) return false;
 

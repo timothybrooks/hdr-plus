@@ -118,48 +118,39 @@ class HDRPlus {
 
             return true;
         }
-
-        /*
-         * find_ref -- currently unused. Finds the frame in a stack with the smallest variance.
-         * This frame would ideally be used as the reference frame for the rest of the pipeline.
-         * Based on Welford's numerically stable online variance approximation.
-         */
-
-        static int find_ref(Halide::Image<uint16_t> &imgs, int min_idx = 0, int max_idx = 3) {
-
-            assert(imgs.dimensions() == 3);
-
-            Func variance("variance");
-            Var n;
-            variance(n) = 0; // TODO: compute variance within some smaller region of image n
-
-            double max_variance = 0;
-            int ref_idx = 0;
-
-            Image<double> variance_r = variance.realize(imgs.extent(0));
-
-            for (int idx = min_idx; idx < max_idx; idx++) {
-
-                double curr_variance = variance_r(idx);
-                if (curr_variance > max_variance) {
-
-                    max_variance = curr_variance;
-                    ref_idx = idx;
-                }
-            }
-
-            return ref_idx;
-        }
 };
 
-int main(int argc, char* argv[]) {
+const WhiteBalance read_white_balance(std::string file_path) {
+
+    Tools::Internal::PipeOpener f(("../tools/dcraw -v -i " + file_path).c_str(), "r");
     
-    // TODO: validate input arguments
+    char buf[1024];
+
+    while(f.f != nullptr) {
+
+        f.readLine(buf, 1024);
+
+        float r, g0, g1, b;
+
+        if(sscanf(buf, "Camera multipliers: %f %f %f %f", &r, &g0, &b, &g1) == 4) {
+
+            float m = std::min(std::min(r, g0), std::min(g1, b));
+
+            return {r / m, g0 / m, g1 / m, b / m};
+        }
+    }
+
+    return {1, 1, 1, 1};
+}
+
+int main(int argc, char* argv[]) {
     
     if (argc < 5) {
         std::cerr << "Usage: " << argv[0] << " dir_path out_img raw_img1 raw_img2 [...]" << std::endl;
         return 1;
     }
+
+    // TODO: validate input arguments
 
     int i = 1;
     std::string dir_path = argv[i++];
@@ -173,18 +164,11 @@ int main(int argc, char* argv[]) {
 
     if(!HDRPlus::load_raws(dir_path, in_names, imgs)) return -1;
 
-    // TODO: find reference, reorder so reference is first image
-    // This is not super important to figure out, since it is easy
-    // and for now we just use the first image
-    //int ref_idx = HDRPlus::find_ref(imgs);
-
-    // TODO: read these values from the reference image header (possibly using dcraw)
-    const WhiteBalance wb = {1.3984, 1, 1, 2.415};   // r, g0, g1, b
+    const WhiteBalance wb = read_white_balance(dir_path + in_names[0]);
     const BlackPoint bp = 2050;
     const WhitePoint wp = 15464;
     const Compression c = 3.8f;
     const Gain g = 1.1f;
-    //const Sharpness = 4.f;
 
     HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb, c, g);
 
