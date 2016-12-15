@@ -174,63 +174,6 @@ Func demosaic(Func input, int width, int height) {
 }
 
 /*
- * median_filter -- Applies an approximate 3x3 median filter by compputing the
- * 2x2 median of overlapping 2x2 medians. This approximation is used to save
- * performance time.
- */
-Func median_filter(Func input, int width, int height) {
-
-    Func pass("median_filter_pass");
-    Func output("median_filter_output");
-
-    Var x, y, c;
-    RDom r(-1, 2, -1, 2);
-
-    Func input_mirror = BoundaryConditions::mirror_image(input, 0, width, 0, height);
-
-    // first pass of 2x2 median filter
-
-    pass(x, y, c) = input(x, y, c);
-
-    pass(x, y, 1) = (sum(input_mirror(x - r.x, y - r.y, 1))
-                   - maximum(input_mirror(x - r.x, y - r.y, 1))
-                   - minimum(input_mirror(x - r.x, y - r.y, 1))) / 2;
-
-    pass(x, y, 2) = (sum(input_mirror(x - r.x, y - r.y, 2))
-                   - maximum(input_mirror(x - r.x, y - r.y, 2))
-                   - minimum(input_mirror(x - r.x, y - r.y, 2))) / 2;
-
-    // second pass of 2x2 median filter, in opposite direction
-
-    output(x, y, c) = pass(x, y, c);
-
-    output(x, y, 1) = (sum(pass(x + r.x, y + r.y, 1))
-                     - maximum(pass(x + r.x, y + r.y, 1))
-                     - minimum(pass(x + r.x, y + r.y, 1))) / 2;
-
-    output(x, y, 2) = (sum(pass(x + r.x, y + r.y, 2))
-                     - maximum(pass(x + r.x, y + r.y, 2))
-                     - minimum(pass(x + r.x, y + r.y, 2))) / 2;
-
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    pass.compute_root().parallel(y).vectorize(x, 16);
-
-    pass.update(0).parallel(y).vectorize(x, 16);
-    pass.update(1).parallel(y).vectorize(x, 16);
-
-    output.compute_root().parallel(y).vectorize(x, 16);
-
-    output.update(0).parallel(y).vectorize(x, 16);
-    output.update(1).parallel(y).vectorize(x, 16);
-
-    return output;
-}
-
-
-/*
  * bilateral_filter -- Applies a 7x7 bilateral filter to the UV channels of a
  * YUV input to reduce chromatic noise. Chroma values above a threshold are
  * weighted as 0 to decrease amplification of saturation artifacts, which can
@@ -267,7 +210,9 @@ Func bilateral_filter(Func input, int width, int height) {
 
     // score represents the weight contribution due to intensity difference
 
-    Expr score = select(input_mirror(x + dx, y + dy, c) > 25000, 0.f, exp(-dist * dist / sig2));
+    float threshold = 25000.f;
+
+    Expr score = select(abs(input_mirror(x + dx, y + dy, c)) > threshold, 0.f, exp(-dist * dist / sig2));
 
     // combine score with gaussian weights and compute total weights in search region
 
@@ -302,34 +247,36 @@ Func bilateral_filter(Func input, int width, int height) {
 
 /*
  * chroma_denoise -- Reduces chromatic noise by blurring UV channels of a YUV
- * input in the shadows of an image. The noise removal is more aggresive the
- * darker the region is (since signal strength of input is lower). The noise
- * removal will only decrease saturation.
+ * input in and using the result only if it falls within constraints on by what
+ * factor and absolute threshold the chroma magnitudes fall.
  */
-Func desaturate_shadows(Func input, int width, int height) {
+Func desaturate_noise(Func input, int width, int height) {
 
-    Func output("desaturate_shadows_output");
+    Func output("desaturate_noise_output");
 
     Var x, y, c;
 
     Func input_mirror = BoundaryConditions::mirror_image(input, 0, width, 0, height);
 
-    Func blur = gauss_15x15(gauss_15x15(input_mirror, "desaturate_shadows_blur1"), "desaturate_shadows_blur2");
+    Func blur = gauss_15x15(gauss_15x15(input_mirror, "desaturate_noise_blur1"), "desaturate_noise_blur2");
 
-    // threshold values below which to start denoising
+    // magnitude of chroma channel can increase by at most the factor
 
-    float threshold = 12000.f;
+    float factor = 1.2f;
 
-    // noise removal amount is inversely proportional to luma (dark regions more aggrssively denoised)
+    // denoise will only be applied when input and output value are less than threshold
 
-    Expr factor = clamp(input(x, y, 0) / threshold - 0.3f, 0.3f, 1.f);
-
-    // only use denoised value if chroma magnitude has decreased (dark region is less saturated)
+    float threshold = 25000.f;
 
     output(x, y, c) = input(x, y, c);
 
-    output(x, y, 1) = min(abs(factor * output(x, y, 1) + (1.f - factor) * blur(x, y, 1)), abs(input(x, y, 1))) * input(x, y, 1) / abs(input(x, y, 1));
-    output(x, y, 2) = min(abs(factor * output(x, y, 2) + (1.f - factor) * blur(x, y, 2)), abs(input(x, y, 2))) * input(x, y, 2) / abs(input(x, y, 2));
+    output(x, y, 1) = select((abs(blur(x, y, 1)) / abs(input(x, y, 1)) < factor) &&
+                             (abs(input(x, y, 1)) < threshold) && (abs(blur(x, y, 1)) < threshold),
+                             0.7f * blur(x, y, 1), input(x, y, 1));
+
+    output(x, y, 2) = select((abs(blur(x, y, 2)) / abs(input(x, y, 2)) < factor) &&
+                             (abs(input(x, y, 2)) < threshold) && (abs(blur(x, y, 2)) < threshold),
+                             0.7f * blur(x, y, 2), input(x, y, 2));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
@@ -342,21 +289,15 @@ Func desaturate_shadows(Func input, int width, int height) {
 
 /*
  * chroma_denoise -- Reduces chromatic noise in an image through a combination
- * median filtering, bilateral filtering and shadow desaturation. The noise
- * removal algorithms will be applied iteratively in order of increasing 
- * aggressiveness, with the total number of passes determined by input.
+ * bilateral filtering and shadow desaturation. The noise removal algorithms
+ * will be applied iteratively in order of increasing aggressiveness, with the
+ * total number of passes determined by input.
  */
 Func chroma_denoise(Func input, int width, int height, int num_passes) {
     
     Func output = rgb_to_yuv(input);
 
     int pass = 0;
-
-    if (pass < num_passes) {
-
-        output = median_filter(output, width, height);
-        pass++;
-    }
 
     if (pass < num_passes) {
 
@@ -707,7 +648,7 @@ Func u8bit_interleaved(Func input) {
  */
 Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
 
-    int denoise_passes = 5;
+    int denoise_passes = 2;
     float contrast_strength = 4.f;
     float sharpen_strength = 6.f;
 
