@@ -262,7 +262,7 @@ Func desaturate_noise(Func input, int width, int height) {
 
     // magnitude of chroma channel can increase by at most the factor
 
-    float factor = 1.3f;
+    float factor = 1.4f;
 
     // denoise will only be applied when input and output value are less than threshold
 
@@ -320,19 +320,14 @@ Func chroma_denoise(Func input, int width, int height, int num_passes) {
 
     int pass = 0;
 
-    if (pass < num_passes) {
+    while(pass < num_passes) {
 
+        output = desaturate_noise(output, width, height);
         output = bilateral_filter(output, width, height);
         pass++;
     }
 
-    while(pass < num_passes) {
-
-        output = desaturate_noise(output, width, height);
-        pass++;
-    }
-
-    if (num_passes > 1) output = increase_saturation(output, 1.3f);
+    if (num_passes > 1) output = increase_saturation(output, 1.1f);
 
     return yuv_to_rgb(output);
 }
@@ -677,9 +672,9 @@ Func u8bit_interleaved(Func input) {
  */
 Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
 
-    int denoise_passes = 4;
-    float contrast_strength = 4.f;
-    int black_level = 5000;
+    int denoise_passes = 1;
+    float contrast_strength = 5.f;
+    int black_level = 2000;
     float sharpen_strength = 6.f;
 
     // 1. Black-level subtraction and white-level scaling

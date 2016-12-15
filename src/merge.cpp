@@ -50,7 +50,7 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
     // constants for determining strength and robustness of temporal merge
     
     float factor = 4.f;                         // factor by which inverse function is elongated
-    int min_dist = 8;                           // pixel L1 distance below which weight is maximal
+    int min_dist = 10;                           // pixel L1 distance below which weight is maximal
     int max_dist = 300;                         // pixel L1 distance above which weight is zero
 
     // average L1 distance in tile and distance normalized to min and factor 
