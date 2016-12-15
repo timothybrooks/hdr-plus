@@ -146,13 +146,40 @@ const WhiteBalance read_white_balance(std::string file_path) {
 int main(int argc, char* argv[]) {
     
     if (argc < 5) {
-        std::cerr << "Usage: " << argv[0] << " dir_path out_img raw_img1 raw_img2 [...]" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " [options] dir_path out_img raw_img1 raw_img2 [...]" << std::endl;
         return 1;
     }
 
-    // TODO: validate input arguments
+    Compression c = 3.8f;
+    Gain g = 1.1f;
 
     int i = 1;
+
+    while(argv[i][0] == '-') {
+
+        if(argv[i][1] == 'c') {
+
+            c = atof(argv[++i]);
+            i++;
+            continue;
+        }
+        else if(argv[i][1] == 'g') {
+
+            g = atof(argv[++i]);
+            i++;
+            continue;
+        }
+        else {
+            std::cerr << "Invalid flag '" << argv[i][1] << "'" << std::endl;
+            return 1;
+        }
+    }
+
+    if (argc - i < 4) {
+        std::cerr << "Usage: " << argv[0] << " [-c comp -g gain] dir_path out_img raw_img1 raw_img2 [...]" << std::endl;
+        return 1;
+    }
+
     std::string dir_path = argv[i++];
     std::string out_name = argv[i++];
 
@@ -167,8 +194,6 @@ int main(int argc, char* argv[]) {
     const WhiteBalance wb = read_white_balance(dir_path + in_names[0]);
     const BlackPoint bp = 2050;
     const WhitePoint wp = 15464;
-    const Compression c = 3.8f;
-    const Gain g = 1.1f;
 
     HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb, c, g);
 
