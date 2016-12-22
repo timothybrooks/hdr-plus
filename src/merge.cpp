@@ -48,12 +48,12 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
     alt_val = layer(al_x, al_y, n);
 
     // constants for determining strength and robustness of temporal merge
-    
-    float factor = 4.f;                         // factor by which inverse function is elongated
-    int min_dist = 10;                           // pixel L1 distance below which weight is maximal
+
+    float factor = 8.f;                         // factor by which inverse function is elongated
+    int min_dist = 10;                          // pixel L1 distance below which weight is maximal
     int max_dist = 300;                         // pixel L1 distance above which weight is zero
 
-    // average L1 distance in tile and distance normalized to min and factor 
+    // average L1 distance in tile and distance normalized to min and factor
 
     Expr dist = sum(abs(i32(ref_val) - i32(alt_val))) / 256;
 
@@ -78,7 +78,7 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
     alt_val = imgs_mirror(al_x, al_y, r1);
 
     // temporal merge function using weighted pixel values
-    
+
     output(ix, iy, tx, ty) = sum(weight(tx, ty, r1) * alt_val / total_weight(tx, ty)) + ref_val / total_weight(tx, ty);
 
     ///////////////////////////////////////////////////////////////////////////
@@ -95,7 +95,7 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
 }
 
 /*
- * merge_spatial -- smoothly blends between half-overlapped tiles in the spatial 
+ * merge_spatial -- smoothly blends between half-overlapped tiles in the spatial
  * domain using a raised cosine filter.
  */
 Func merge_spatial(Func input) {

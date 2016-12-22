@@ -25,7 +25,7 @@ Func black_white_level(Func input, const BlackPoint bp, const BlackPoint wp) {
 }
 
 /*
- * white_balance -- Corrects white-balance of a mosaicked image based on input 
+ * white_balance -- Corrects white-balance of a mosaicked image based on input
  * color multipliers. Note that the two green channels in the bayer pattern
  * are white-balanced separately.
  */
@@ -127,7 +127,7 @@ Func demosaic(Func input, int width, int height) {
     d2(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f2(r0.x, r0.y)) / f2_sum);
     d3(x, y) = u16_sat(sum(i32(input_mirror(x + r0.x, y + r0.y)) * f3(r0.x, r0.y)) / f3_sum);
 
-    // resulting demosaicked function    
+    // resulting demosaicked function
 
     output(x, y, c) = input(x, y);                                              // initialize each channel to input mosaicked image
 
@@ -180,7 +180,7 @@ Func demosaic(Func input, int width, int height) {
  * occur around bright highlights.
  */
 Func bilateral_filter(Func input, int width, int height) {
-    
+
     Func k("gauss_kernel");
     Func weights("bilateral_weights");
     Func total_weights("bilateral_total_weights");
@@ -315,19 +315,21 @@ Func increase_saturation(Func input, float strength) {
  * total number of passes determined by input.
  */
 Func chroma_denoise(Func input, int width, int height, int num_passes) {
-    
+
     Func output = rgb_to_yuv(input);
 
     int pass = 0;
 
+    if (num_passes > 0) output = bilateral_filter(output, width, height);
+    pass++;
+
     while(pass < num_passes) {
 
         output = desaturate_noise(output, width, height);
-        output = bilateral_filter(output, width, height);
         pass++;
     }
 
-    if (num_passes > 1) output = increase_saturation(output, 1.1f);
+    if (num_passes > 2) output = increase_saturation(output, 1.1f);
 
     return yuv_to_rgb(output);
 }
@@ -457,12 +459,12 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
     Func normal_dist("luma_weight_distribution");
     Func grayscale("grayscale");
     Func output("tone_map_output");
-    
+
     Var x, y, c, v;
     RDom r(0, 3);
 
     // distribution function (from exposure fusion paper)
-    
+
     normal_dist(v) = f32(exp(-12.5f * pow(f32(v) / 65535.f - .5f, 2.f)));
 
     // use grayscale and brighter grayscale images for exposure fusion
@@ -513,9 +515,9 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
-    
+
     grayscale.compute_root().parallel(y).vectorize(x, 16);
-    
+
     normal_dist.compute_root().vectorize(v, 16);
 
     return output;
@@ -527,14 +529,14 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
  * https://www.cybercom.net/~dcoffin/dcraw/
  */
 Func srgb(Func input) {
-    
+
     Func srgb_matrix("srgb_matrix");
     Func output("srgb_output");
 
     Var x, y, c;
     RDom r(0, 3);
 
-    // srgb conversion matrix; 
+    // srgb conversion matrix;
 
     srgb_matrix(x, y) = 0.f;
 
@@ -650,7 +652,7 @@ Func u8bit_interleaved(Func input) {
     Var c, x, y;
 
     // Convert to 8 bit
-    
+
     output(c, x, y) = u8_sat(input(x, y, c) / 256);
 
     ///////////////////////////////////////////////////////////////////////////
@@ -675,7 +677,7 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     int denoise_passes = 1;
     float contrast_strength = 5.f;
     int black_level = 2000;
-    float sharpen_strength = 6.f;
+    float sharpen_strength = 2.f;
 
     // 1. Black-level subtraction and white-level scaling
 
@@ -695,8 +697,8 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
 
     // 5. sRGB color correction
 
-    Func srgb_output = srgb(chroma_denoised_output);
-    
+    Func srgb_output = srgb(demosaic_output);
+
     // 6. Tone mapping
 
     Func tone_map_output = tone_map(srgb_output, width, height, c, g);
@@ -713,5 +715,5 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
 
     Func sharpen_output = sharpen(contrast_output, sharpen_strength);
 
-    return u8bit_interleaved(sharpen_output);
+    return u8bit_interleaved(contrast_output);
 }
