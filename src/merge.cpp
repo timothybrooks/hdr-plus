@@ -61,7 +61,7 @@ Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
 
     // weight for each tile in temporal merge; inversely proportional to reference and alternate tile L1 distance
 
-    weight(tx, ty, n) = select(norm_dist > (max_dist - min_dist), 0.f, 1.f / norm_dist);
+    weight(tx, ty, n) = select(norm_dist > (max_dist - min_dist) / factor, 0.f, 1.f / norm_dist);
 
     // total weight for each tile in a temporal stack of images
 
