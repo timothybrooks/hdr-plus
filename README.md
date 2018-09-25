@@ -1,3 +1,5 @@
+Note: I now work for Google's computational photography research group, which developed and published HDR+. Therefore, to avoid conflicts of interest, I no longer maintain the code in this repository. If you are interested in continuing this open source project, I would love to transfer ownership to another open source contributor. Please reach out to me if you are interested!
+
 # HDR+ Implementation
 Please see: http://timothybrooks.com/tech/hdr-plus
 
