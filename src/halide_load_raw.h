@@ -83,6 +83,13 @@ bool load_raw(const std::string &filename, uint16_t* data, int width, int height
             }
         }
     }
+	//boost each input pixel by 64, the alginment scoring seems to work better with higher values
+	//we loose 64 in highlights but on 12-14bit input its negligible
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			data[y * width + x] += 64;
+		}
+	}
 
     return true;
 }

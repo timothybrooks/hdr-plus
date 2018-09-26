@@ -189,7 +189,7 @@ int main(int argc, char* argv[]) {
     if(!HDRPlus::load_raws(dir_path, in_names, imgs)) return -1;
 
     const WhiteBalance wb = read_white_balance(dir_path + "/" + in_names[0]);
-    const BlackPoint bp = 2050;
+    const BlackPoint bp = 2050 + 64; //incrase black lvl to compensate the boosted input by 64, without the final image gets brighter
     const WhitePoint wp = 15464;
 
     HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb, c, g);
