@@ -54,7 +54,7 @@ Func gauss_down4(Func input, std::string name) {
 
     // output with applied kernel and stride 4
 
-    output(x, y, n) = u16(sum(u32(input(4*x + r.x, 4*y + r.y, n) * k(r.x, r.y))) / 256);
+    output(x, y, n) = u16(sum(u32(input(4*x + r.x, 4*y + r.y, n) * k(r.x, r.y))) / 159);
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
