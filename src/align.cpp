@@ -19,7 +19,7 @@ Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max
 
     Var xi, yi, tx, ty, n;
     RDom r0(0, 16, 0, 16);              // reduction over pixels in tile
-    RDom r1(-4, 4, -4, 4);              // reduction over search region; extent clipped to 8 for SIMD vectorization
+    RDom r1(-4, 8, -4, 8);              // reduction over search region; extent clipped to 8 for SIMD vectorization
 
     // offset from the alignment of the previous layer, scaled to this layer. Clamp to bound the amount of memory Halide
     // allocates for the current alignment layer.
