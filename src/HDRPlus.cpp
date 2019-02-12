@@ -184,7 +184,7 @@ int main(int argc, char* argv[]) {
 
     while (i < argc) in_names.push_back(argv[i++]);
 
-    Image<uint16_t> imgs;
+    Buffer<uint16_t> imgs;
 
     if(!HDRPlus::load_raws(dir_path, in_names, imgs)) return -1;
 
@@ -194,7 +194,7 @@ int main(int argc, char* argv[]) {
 
     HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb, c, g);
 
-    Image<uint8_t> output = hdr_plus.process();
+    Buffer<uint8_t> output = hdr_plus.process();
     
     if(!HDRPlus::save_png(dir_path, out_name, output)) return -1;
 
