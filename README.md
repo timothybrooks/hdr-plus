@@ -26,8 +26,8 @@ Examples:
 
 Footnotes:
 
-¹ If you are on macos the included dcraw binary will not work so I included the macos version in the same directory. If you are on macOS change the following "../tools/dcraw" to "../tools/dcraw_macos" in the files below before compiling:
-  - Batch_dcraw
+¹ If you are on macOS the included dcraw binary will not work so I included the macos version in the same directory. If you are on macOS change the following "../tools/dcraw" to "../tools/dcraw_macos" in the files below before compiling:
+  - Batch_dcraw.py
   - finish.cpp (2 instances)
   - HDRPlus.cpp
   - halide_load_raw.h
