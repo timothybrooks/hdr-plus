@@ -13,3 +13,8 @@ cd build
 cmake ..
 make
 ```
+
+Usage:
+```
+./hdrplus [options] dir_path out_img raw_img1 raw_img2 [...]
+```
