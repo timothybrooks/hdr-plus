@@ -65,7 +65,7 @@ Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max
  * by T_SIZE_2 in each dimension. align(imgs)(tile_x, tile_y, n) is a point representing the x and y offset
  * for a tile in layer n that most closely matches that tile in the reference (relative to the reference tile's location)
  */
-Func align(const Image<uint16_t> imgs) {
+Func align(const Buffer<uint16_t> imgs) {
 
     Func alignment_3("layer_3_alignment");
     Func alignment("alignment");
