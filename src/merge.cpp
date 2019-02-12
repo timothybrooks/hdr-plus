@@ -14,7 +14,7 @@ using namespace Halide::ConciseCasts;
  * tile. Thresholds L1 scores so that tiles above a certain distance are completely
  * discounted, and tiles below a certain distance are assumed to be perfectly aligned.
  */
-Func merge_temporal(Image<uint16_t> imgs, Func alignment) {
+Func merge_temporal(Buffer<uint16_t> imgs, Func alignment) {
 
     Func weight("merge_temporal_weights");
     Func total_weight("merge_temporal_total_weights");
@@ -146,7 +146,7 @@ Func merge_spatial(Func input) {
  * merge -- fully merges aligned frames in the temporal and spatial
  * dimension to produce one denoised bayer frame.
  */
-Func merge(Image<uint16_t> imgs, Func alignment) {
+Func merge(Buffer<uint16_t> imgs, Func alignment) {
 
     Func merge_temporal_output = merge_temporal(imgs, alignment);
 
