@@ -18,8 +18,8 @@ set(src_files
     src/util.cpp
     )
 
-include_directories(${HALIDE_ROOT_DIR}/include ${HALIDE_ROOT_DIR}/tools)
-link_directories(${HALIDE_ROOT_DIR}/bin)
+include_directories(${HALIDE_ROOT_DIR}/lib ${HALIDE_ROOT_DIR}/include ${HALIDE_ROOT_DIR}/tools)
+link_directories(${HALIDE_ROOT_DIR}/bin ${HALIDE_ROOT_DIR}/lib)
 
 add_executable(hdrplus ${src_files})
 
