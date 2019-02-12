@@ -32,4 +32,4 @@ Footnotes:
   - HDRPlus.cpp
   - halide_load_raw.h
   
-² Also to install libraw, libpng, and libjpeg on macos run ```brew install libraw* libpng* libjpeg*```
+² Also to install libraw, libpng, and libjpeg on macOS run ```brew install libraw* libpng* libjpeg*```
