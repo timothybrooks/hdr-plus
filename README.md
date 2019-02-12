@@ -4,12 +4,32 @@ Note: I now work for Google's computational photography research group, which de
 Please see: http://timothybrooks.com/tech/hdr-plus
 
 To compile, follow these steps:
-1. Install Halide from http://halide-lang.org/.
-2. Set `HALIDE_ROOT_DIR` in CMakeLists.txt to the Halide directory path.
-3. From the project root directory, run the following commands:
+1. Install libraw¹, libpng, and libjpeg.²
+2. Download a version of Halide from https://github.com/halide/Halide_old_history/releases.
+3. Set `HALIDE_ROOT_DIR` in CMakeLists.txt to the Halide directory path.
+4. From the project root directory, run the following commands:
 ```
 mkdir build
 cd build
 cmake ..
 make
 ```
+
+Usage:
+```
+./hdrplus [options] dir_path out_img raw_img1 raw_img2 [...]
+```
+Examples:
+```
+./hdrplus ~/Desktop output.png 1.dng 2.dng 3.dng
+```
+
+Footnotes:
+
+¹ If you are on macos the included dcraw binary will not work so I included the macos version in the same directory. If you are on macOS change the following "../tools/dcraw" to "../tools/dcraw_macos" in the files below before compiling:
+  - Batch_dcraw
+  - finish.cpp (2 instances)
+  - HDRPlus.cpp
+  - halide_load_raw.h
+  
+² Also to install libraw, libpng, and libjpeg on macos run ```brew install libraw* libpng* libjpeg*```
