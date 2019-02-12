@@ -14,7 +14,9 @@ cd build
 cmake ..
 make
 ```
+
 Height and Width related errors:
+
 If you get an error relating to the width and height of the input photos change the width and height in src/HDRPlus.cpp to the dimensions of your input files.
 
   Example of an error created:
@@ -36,4 +38,3 @@ Footnotes:
   - halide_load_raw.h
   
 ² Also to install libraw, libpng, and libjpeg on macOS run ```brew install libraw* libpng* libjpeg*```
-
