@@ -31,7 +31,7 @@ Input image '/Users/simon/Desktop/Photography/HDR-PLUS-TEST/1//3.dng' has width 
 
 ### Compiled Binary Usage:
 ```
-./hdrplus [-c comp -g gain] dir_path out_img raw_img1 raw_img2 [...]
+Usage: ./hdrplus [-c comp -g gain (optional)] dir_path out_img raw_img1 raw_img2 [...]
 ```
 
 The -c and -g flags change the amount of dynamic range compression and gain respectively. Although they are optional because they both have default values. 
