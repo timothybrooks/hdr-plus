@@ -26,6 +26,16 @@ If you get an error relating to the width and height of the input photos³ chang
 
 If you get a discolored or weird looking image, do the command ``` dcraw -v -T (filename)``` and make note of the "darkness" and "saturation" numbers. Delete the tiff file dcraw made as well. Open HDRPlus.cpp and find "const BlackPoint bp =" and replace the number following that with the "darkness" number from the dcraw command. The line below that contains "const WhitePoint wp =" replace the number after this with the "saturation" number you got from dcraw. Recompile and it it should work! If you get the same issue with other pictures do the same thing again, but run the dcraw command on the other picture.
 
+Example output of Dcraw command:
+(The important values are on line 2 of the output)
+```
+Loading Canon EOS DIGITAL REBEL XT image from 1.CR2 ...
+Scaling with darkness 255, saturation 4095, and
+multipliers 2.690726 1.000000 1.270038 1.000000
+AHD interpolation...
+Converting to sRGB colorspace...
+Writing data to 1.tiff ...
+```
 
 #### Example of an error created:
 ```
