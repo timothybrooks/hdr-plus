@@ -22,12 +22,16 @@ make
 
 If you get an error relating to the width and height of the input photos³ change the width and height in src/HDRPlus.cpp to the dimensions of your input files.
 
+### Wp and Bp issues
+
+If you get a discolored or weird looking image, do the command ``` dcraw -v -T (filename)``` and make note of the "darkness" and "saturation" numbers. Delete the tiff file dcraw made as well. Open HDRPlus.cpp and find "const BlackPoint bp =" and replace the number following that with the "darkness" number from the dcraw command. The line below that contains "const WhitePoint wp =" replace the number after this with the "saturation" number you got from dcraw. Recompile and it it should work! If you get the same issue with other pictures do the same thing again, but run the dcraw command on the other picture.
+
 
 #### Example of an error created:
 ```
 Input image '/Users/simon/Desktop/Photography/HDR-PLUS-TEST/1//3.dng' has width 3474, but must must have width of 5796
 ```
-  
+
 
 ### Compiled Binary Usage:
 ```
