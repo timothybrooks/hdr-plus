@@ -143,7 +143,7 @@ const WhiteBalance read_white_balance(std::string file_path) {
 int main(int argc, char* argv[]) {
     
     if (argc < 5) {
-        std::cerr << "Usage: " << argv[0] << " [options] dir_path out_img raw_img1 raw_img2 [...]" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " [-c comp -g gain (optional)] dir_path out_img raw_img1 raw_img2 [...]" << std::endl;
         return 1;
     }
 
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (argc - i < 4) {
-        std::cerr << "Usage: " << argv[0] << " [-c comp -g gain] dir_path out_img raw_img1 raw_img2 [...]" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " [-c comp -g gain (optional)] dir_path out_img raw_img1 raw_img2 [...]" << std::endl;
         return 1;
     }
 
