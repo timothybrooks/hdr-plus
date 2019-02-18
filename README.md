@@ -5,9 +5,12 @@ Original Document on the subject (by Timothy Brooks): http://timothybrooks.com/t
 
 To compile, follow these steps:
 1. Install libraw¹, libpng, and libjpeg.²
-2. Download a version of Halide³ from https://github.com/halide/Halide_old_history/releases.
-3. Set `HALIDE_ROOT_DIR` in CMakeLists.txt to the Halide directory path.
-4. From the project root directory, run the following commands:
+2. Download and compile llvm 3.9
+3. Download the "2017-05-03" source of Halide from https://github.com/halide/Halide_old_history/releases
+4. Compile Halide according to the README.md file included with the source file zip of halide.
+5. Go the folder you have the hdr-plus code in.
+6. Set `HALIDE_ROOT_DIR` in CMakeLists.txt to the Halide directory path.
+7. From the project root directory, run the following commands:
 ```
 mkdir build
 cd build
@@ -17,7 +20,7 @@ make
 
 ### Height and Width related errors:
 
-If you get an error relating to the width and height of the input photos⁴ change the width and height in src/HDRPlus.cpp to the dimensions of your input files.
+If you get an error relating to the width and height of the input photos³ change the width and height in src/HDRPlus.cpp to the dimensions of your input files.
 
 
 #### Example of an error created:
@@ -44,6 +47,4 @@ The -c and -g flags change the amount of dynamic range compression and gain resp
   
 ² Also to install libraw, libpng, and libjpeg on macOS run ```brew install libraw* libpng* libjpeg*```
 
-³ The exact version of Halide to be used will be determined as I am still testing different versions. If you know of a specific version feel free to contact me.
-
-⁴ I am looking into the program automaticly finding the width and height of the input photos. If you have any pointers please contact me.
+³ I am looking into the program automaticly finding the width and height of the input photos. If you have any pointers please contact me.
