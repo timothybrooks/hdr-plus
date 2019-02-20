@@ -3,7 +3,7 @@ Note: The user "Titaniumtown" is now the primary maintainer of this repository; 
 # HDR+ Implementation
 Original Document on the subject (by Timothy Brooks): http://timothybrooks.com/tech/hdr-plus
 
-To compile, follow these steps:
+### Compilation instructions:
 1. Install libraw¹, libpng, and libjpeg.²
 2. Download and compile llvm 3.9
 3. Download the "2017-05-03" source of Halide from https://github.com/halide/Halide_old_history/releases
@@ -31,8 +31,8 @@ Input image '/Users/simon/Desktop/Photography/HDR-PLUS-TEST/1//3.dng' has width 
 
 If you get a discolored or weird looking image, do the command ``` dcraw -v -T (filename)``` and make note of the "darkness" and "saturation" numbers. Delete the tiff file dcraw made as well. Open HDRPlus.cpp and find "const BlackPoint bp =" and replace the number following that with the "darkness" number from the dcraw command. The line below that contains "const WhitePoint wp =" replace the number after this with the "saturation" number you got from dcraw. Recompile and it it should work! If you get the same issue with other pictures do the same thing again, but run the dcraw command on the other picture.
 
-Example output of Dcraw command:
-(The important values are on line 2 of the output)
+#### Example output of Dcraw command:
+(Note: The important values are on line 2 of the output)
 ```
 Loading Canon EOS DIGITAL REBEL XT image from 1.CR2 ...
 Scaling with darkness 255, saturation 4095, and
