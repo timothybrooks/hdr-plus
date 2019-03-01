@@ -61,4 +61,4 @@ The -c and -g flags change the amount of dynamic range compression and gain resp
   
 ² Also to install libraw, libpng, and libjpeg on macOS run ```brew install libraw* libpng* libjpeg*```
 
-³ I am looking into the program automaticly finding the width and height of the input photos. If you have any pointers please contact me.
+³ I am creating a prototype of the HDR+ code that uses Exiv2 to detect black and white levels along with width and height
