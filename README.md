@@ -61,4 +61,4 @@ The -c and -g flags change the amount of dynamic range compression and gain resp
   
 ² Also to install libraw, libpng, and libjpeg on macOS run ```brew install libraw* libpng* libjpeg*```
 
-³ I am creating a prototype of the HDR+ code that uses Exiv2 to detect black and white levels along with width and height
+³ I am creating a prototype of the HDR+ code that uses Exiv2 to detect black and white levels along with width and height; so stay tuned!
