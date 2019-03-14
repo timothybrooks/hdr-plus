@@ -18,6 +18,12 @@ cmake ..
 make
 ```
 
+### HDR+ algorithm examples:
+
+Timothy Brooks provided images (at the link below) that have burst shot inputs and the HDR+'s output.
+
+https://drive.google.com/drive/folders/1XR61IhzuYQU5eLQfBJ0KEMK83Aocta6g?usp=sharing
+
 ### Height and Width related errors:
 
 If you get an error relating to the width and height of the input photos³ change the width and height in src/HDRPlus.cpp to the dimensions of your input files.
@@ -42,7 +48,6 @@ Converting to sRGB colorspace...
 Writing data to 1.tiff ...
 ```
 
-
 ### Compiled Binary Usage:
 ```
 Usage: ./hdrplus [-c comp -g gain (optional)] dir_path out_img raw_img1 raw_img2 [...]
@@ -61,4 +66,4 @@ The -c and -g flags change the amount of dynamic range compression and gain resp
   
 ² Also to install libraw, libpng, and libjpeg on macOS run ```brew install libraw* libpng* libjpeg*```
 
-³ I am creating a prototype of the HDR+ code that uses Exiv2 to detect black and white levels along with width and height; so stay tuned!
+³ I am creating a prototype of the HDR+ code that uses Exiv2 to detect black and white levels along with width and height; so stay tuned! If you have any pointers or better methods to implement these features; please feel free to contact me.
