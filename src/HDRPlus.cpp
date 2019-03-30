@@ -35,7 +35,7 @@ public:
     const Gain g;
     char *readfile;
     std::string readfilestring;
-    int imagesize();
+    void imagesize();
     
     HDRPlus(Buffer<uint16_t> imgs, BlackPoint bp, WhitePoint wp, WhiteBalance wb, Compression c, Gain g) : imgs(imgs), bp(bp), wp(wp), wb(wb), c(c), g(g) {
         
@@ -148,13 +148,14 @@ const WhiteBalance read_white_balance(std::string file_path) {
 
 
 
-int imagesize(char *FILE) {
+void imagesize(char *FILE) {
     LibRaw iProcessor;
 
     iProcessor.open_file(read_file);
     static const int width = iProcessor.imgdata.sizes.width;
     static const int height = iProcessor.imgdata.sizes.height;
     iProcessor.recycle();
+    return 0;
 }
 
 
@@ -202,7 +203,7 @@ int main(int argc, char* argv[]) {
 
     std::string readfilestring = dir_path + "/" + in_names[0];
     char *readfile = read_file_string.c_str();    
-    int imagesize(readfile);
+    void imagesize(readfile);
     
     
     const WhiteBalance wb = read_white_balance(dir_path + "/" + in_names[0]);
