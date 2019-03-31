@@ -25,7 +25,7 @@ public:
     explicit RawSource(const std::string& path);
 
     ~RawSource() override {
-        RawProcessor.recycle();
+        RawProcessor.free_image();
     }
 
     int GetWidth() const override { return RawProcessor.imgdata.sizes.raw_width; }
