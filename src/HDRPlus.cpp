@@ -203,7 +203,7 @@ int main(int argc, char* argv[]) {
 
     std::string readfilestring = dir_path + "/" + in_names[0];
     char *readfile = read_file_string.c_str();    
-    void imagesize(readfile);
+    imagesize(readfile);
     
     
     const WhiteBalance wb = read_white_balance(dir_path + "/" + in_names[0]);
