@@ -1,6 +1,8 @@
 #include "Halide.h"
 #include "halide_load_raw.h"
-#include "libraw/libraw.h"
+
+#include "Burst.h"
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../include/stb_image_write.h"
 #include <stdio.h>
@@ -20,13 +22,13 @@ class HDRPlus {
     
 private:
     
-    const Buffer<uint16_t> imgs;
+    const Halide::Runtime::Buffer<uint16_t> imgs;
     
 public:
 
     
-    static const int width;
-    static const int height;
+    const int width;
+    const int height;
     
     const BlackPoint bp;
     const WhitePoint wp;
@@ -37,11 +39,17 @@ public:
     std::string readfilestring;
     void imagesize();
     
-    HDRPlus(Buffer<uint16_t> imgs, BlackPoint bp, WhitePoint wp, WhiteBalance wb, Compression c, Gain g) : imgs(imgs), bp(bp), wp(wp), wb(wb), c(c), g(g) {
-        
+    HDRPlus(Halide::Runtime::Buffer<uint16_t> imgs, BlackPoint bp, WhitePoint wp, WhiteBalance wb, Compression c, Gain g)
+        : imgs(imgs)
+        , width(imgs.width())
+        , height(imgs.height())
+        , bp(bp)
+        , wp(wp)
+        , wb(wb)
+        , c(c)
+        , g(g)
+    {
         assert(imgs.dimensions() == 3);         // width * height * img_idx
-        assert(imgs.width() == width);
-        assert(imgs.height() == height);
         assert(imgs.extent(2) >= 2);            // must have at least one alternate image
     }
     
@@ -49,9 +57,10 @@ public:
      * process -- Calls all of the main stages (align, merge, finish) of the pipeline.
      */
     Buffer<uint8_t> process() {
-        
-        Func alignment = align(imgs);
-        Func merged = merge(imgs, alignment);
+        Halide::Buffer<uint16_t> imgsBuffer(*imgs.raw_buffer());
+
+        Func alignment = align(imgsBuffer);
+        Func merged = merge(imgsBuffer, alignment);
         Func finished = finish(merged, width, height, bp, wp, wb, c, g);
         
         ///////////////////////////////////////////////////////////////////////////
@@ -68,33 +77,6 @@ public:
         output_img.transpose(1, 2);
         
         return output_img;
-    }
-    
-    /*
-     * load_raws -- Loads CR2 (Canon Raw) files into a Halide Image.
-     */
-    static bool load_raws(std::string dir_path, std::vector<std::string> &img_names, Buffer<uint16_t> &imgs) {
-        
-        int num_imgs = img_names.size();
-        
-        imgs = Buffer<uint16_t>(width, height, num_imgs);
-        
-        uint16_t *data = imgs.data();
-        
-        for (int n = 0; n < num_imgs; n++) {
-            
-            std::string img_name = img_names[n];
-            std::string img_path = dir_path + "/" + img_name;
-            
-            if(!Tools::load_raw(img_path, data, width, height)) {
-                
-                std::cerr << "Input image failed to load" << std::endl;
-                return false;
-            }
-            
-            data += width * height;
-        }
-        return true;
     }
     
     /*
@@ -147,18 +129,6 @@ const WhiteBalance read_white_balance(std::string file_path) {
 }
 
 
-
-void imagesize(char *FILE) {
-    LibRaw iProcessor;
-
-    iProcessor.open_file(read_file);
-    static const int width = iProcessor.imgdata.sizes.width;
-    static const int height = iProcessor.imgdata.sizes.height;
-    iProcessor.recycle();
-    return 0;
-}
-
-
 int main(int argc, char* argv[]) {
     
     if (argc < 5) {
@@ -200,24 +170,22 @@ int main(int argc, char* argv[]) {
     std::string out_name = argv[i++];
 
     std::vector<std::string> in_names;
-
-    std::string readfilestring = dir_path + "/" + in_names[0];
-    char *readfile = read_file_string.c_str();    
-    imagesize(readfile);
-    
-    
-    const WhiteBalance wb = read_white_balance(dir_path + "/" + in_names[0]);
-    
     while (i < argc) in_names.push_back(argv[i++]);
 
-    Buffer<uint16_t> imgs;
+    Burst burst(dir_path, in_names);
 
-    if(!HDRPlus::load_raws(dir_path, in_names, imgs)) return -1;
+    Halide::Runtime::Buffer<uint16_t> imgs = burst.ToBuffer();
+    if (imgs.channels() < 2) {
+        return EXIT_FAILURE;
+    }
 
-    const BlackPoint bp = 4095;
-    const WhitePoint wp = 255;
-
-    HDRPlus hdr_plus = HDRPlus(imgs, bp, wp, wb, c, g);
+    HDRPlus hdr_plus = HDRPlus(
+        imgs,
+        burst.GetBlackLevel(),
+        burst.GetWhiteLevel(),
+        burst.GetWhiteBalance(),
+        c,
+        g);
 
     Buffer<uint8_t> output = hdr_plus.process();
     
