@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(HDR_PLUS)
 
 set(CMAKE_CXX_STANDARD 11)
-#set(CMAKE_CXX_FLAGS "-O3 -v -g -Wall")
+#set(CMAKE_CXX_FLAGS "-O3 -v -g -Wall") # Use -DCMAKE_BUILD_TYPE=Release/Debug instead
 find_package(PNG REQUIRED)
 
 
@@ -21,7 +21,10 @@ set(src_files
     src/finish.cpp
     src/merge.cpp
     src/util.cpp
-        src/InputSource.cpp src/InputSource.h src/Burst.cpp src/Burst.h)
+    src/InputSource.cpp
+    src/InputSource.h
+    src/Burst.cpp
+    src/Burst.h)
 
 include_directories(/usr/local/lib /usr/local/include ${HALIDE_ROOT_DIR}/bin ${HALIDE_ROOT_DIR}/lib ${HALIDE_ROOT_DIR}/include ${HALIDE_ROOT_DIR}/tools)
 
