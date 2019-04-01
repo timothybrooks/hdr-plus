@@ -24,30 +24,6 @@ Timothy Brooks provided images (at the link below) that have burst shot inputs a
 
 https://drive.google.com/drive/folders/1XR61IhzuYQU5eLQfBJ0KEMK83Aocta6g?usp=sharing
 
-### Height and Width related errors:
-
-If you get an error relating to the width and height of the input photos³ change the width and height in src/HDRPlus.cpp to the dimensions of your input files.
-
-#### Example of an error created:
-```
-Input image '/Users/simon/Desktop/Photography/HDR-PLUS-TEST/1//3.dng' has width 3474, but must must have width of 5796
-```
-
-### Wp and Bp issues
-
-If you get a discolored or weird looking image, do the command ``` dcraw -v -T (filename)``` and make note of the "darkness" and "saturation" numbers. Delete the tiff file dcraw made as well. Open HDRPlus.cpp and find "const BlackPoint bp =" and replace the number following that with the "darkness" number from the dcraw command. The line below that contains "const WhitePoint wp =" replace the number after this with the "saturation" number you got from dcraw. Recompile and it it should work! If you get the same issue with other pictures do the same thing again, but run the dcraw command on the other picture.
-
-#### Example output of Dcraw command:
-(Note: The important values are on line 2 of the output)
-```
-Loading Canon EOS DIGITAL REBEL XT image from 1.CR2 ...
-Scaling with darkness 255, saturation 4095, and
-multipliers 2.690726 1.000000 1.270038 1.000000
-AHD interpolation...
-Converting to sRGB colorspace...
-Writing data to 1.tiff ...
-```
-
 ### Compiled Binary Usage:
 ```
 Usage: ./hdrplus [-c comp -g gain (optional)] dir_path out_img raw_img1 raw_img2 [...]
@@ -64,6 +40,4 @@ The -c and -g flags change the amount of dynamic range compression and gain resp
   - HDRPlus.cpp
   - halide_load_raw.h
   
-² Also to install libraw, libpng, and libjpeg on macOS run ```brew install libraw* libpng* libjpeg*```
-
-³ I am creating a prototype of the HDR+ code that uses Exiv2 to detect black and white levels along with width and height; so stay tuned! If you have any pointers or better methods to implement these features; please feel free to contact me.
+² Also to install libraw, libpng, and libjpeg on macOS run ```brew install libraw libpng libjpeg```
