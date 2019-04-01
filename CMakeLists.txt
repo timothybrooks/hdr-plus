@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 #set(CMAKE_CXX_FLAGS "-O3 -v -g -Wall") # Use -DCMAKE_BUILD_TYPE=Release/Debug instead
 find_package(PNG REQUIRED)
 
-
+set(HALIDE_ROOT_DIR "")
 
 if(" ${HALIDE_ROOT_DIR}" STREQUAL " ")
     message( FATAL_ERROR "Specify HALIDE_ROOT_DIR variable in the cmake file." )
