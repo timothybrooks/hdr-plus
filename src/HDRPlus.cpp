@@ -101,34 +101,6 @@ public:
 };
 
 
-
-/*
- * read_white_balance -- Reads white balance multipliers from file and returns WhiteBalance.
- */
-const WhiteBalance read_white_balance(std::string file_path) {
-
-    Tools::Internal::PipeOpener f(("../tools/dcraw_macos -v -i " + file_path).c_str(), "r");
-    
-    char buf[1024];
-
-    while(f.f != nullptr) {
-
-        f.readLine(buf, 1024);
-
-        float r, g0, g1, b;
-
-        if(sscanf(buf, "Camera multipliers: %f %f %f %f", &r, &g0, &b, &g1) == 4) {
-
-            float m = std::min(std::min(r, g0), std::min(g1, b));
-
-            return {r / m, g0 / m, g1 / m, b / m};
-        }
-    }
-
-    return {1, 1, 1, 1};
-}
-
-
 int main(int argc, char* argv[]) {
     
     if (argc < 5) {
