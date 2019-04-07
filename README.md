@@ -31,13 +31,10 @@ Usage: ./hdrplus [-c comp -g gain (optional)] dir_path out_img raw_img1 raw_img2
 
 The -c and -g flags change the amount of dynamic range compression and gain respectively. Although they are optional because they both have default values. 
 
-
 ### Footnotes:
 
 ¹ If you are on macOS the included dcraw binary will not work so I included the macos version in the same directory. If you are on macOS change the following "../tools/dcraw" to "../tools/dcraw_macos" in the files below before compiling:
   - batch_dcraw.py
-  - finish.cpp (2 instances)
-  - HDRPlus.cpp
   - halide_load_raw.h
   
 ² Also to install libraw, libpng, and libjpeg on macOS run ```brew install libraw libpng libjpeg```
