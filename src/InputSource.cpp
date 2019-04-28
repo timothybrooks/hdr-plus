@@ -29,8 +29,12 @@ WhiteBalance RawSource::GetWhiteBalance() const {
 }
 
 void RawSource::CopyToBuffer(Halide::Runtime::Buffer<uint16_t> &buffer) const {
-    const int data_size = GetWidth() * GetHeight();
-    const ushort* const image_data = (ushort*)RawProcessor.imgdata.rawdata.raw_image;
-    std::copy(image_data, image_data + data_size, buffer.data());
+    const auto image_data = (uint16_t*)RawProcessor.imgdata.rawdata.raw_image;
+    const auto raw_width = RawProcessor.imgdata.rawdata.sizes.raw_width;
+    const auto raw_height = RawProcessor.imgdata.rawdata.sizes.raw_height;
+    const auto top = RawProcessor.imgdata.rawdata.sizes.top_margin;
+    const auto left = RawProcessor.imgdata.rawdata.sizes.left_margin;
+    Halide::Runtime::Buffer<uint16_t> raw_buffer(image_data, raw_width, raw_height);
+    buffer.copy_from(raw_buffer.translated({-left, -top}));
 }
 
