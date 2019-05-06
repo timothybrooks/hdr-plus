@@ -28,9 +28,9 @@ public:
         RawProcessor.free_image();
     }
 
-    int GetWidth() const override { return RawProcessor.imgdata.sizes.raw_width; }
+    int GetWidth() const override { return RawProcessor.imgdata.rawdata.sizes.width; }
 
-    int GetHeight() const override { return RawProcessor.imgdata.sizes.raw_height; }
+    int GetHeight() const override { return RawProcessor.imgdata.rawdata.sizes.height; }
 
     int GetBlackLevel() const override { return RawProcessor.imgdata.color.black; }
 
