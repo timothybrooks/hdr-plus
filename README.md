@@ -6,7 +6,7 @@ Original Document on the subject (by Timothy Brooks): http://timothybrooks.com/t
 ### Compilation instructions:
 1. Install libraw, libpng, and libjpeg.¹
 2. Download and compile llvm 3.9
-3. Download the "2017-05-03" source of Halide from https://github.com/halide/Halide_old_history/releases
+3. Download the "2017-06-03" source of Halide from https://github.com/halide/Halide_old_history/releases
 4. Compile Halide according to the README.md file included with the source file zip of halide.
 5. Go the folder you have the hdr-plus code in.
 6. Set `HALIDE_ROOT_DIR` in CMakeLists.txt to the Halide directory path.
