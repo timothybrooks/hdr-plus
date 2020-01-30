@@ -1,16 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
 project(HDR_PLUS)
 
+include("macro.cmake")
 set(CMAKE_CXX_STANDARD 11)
-#set(CMAKE_CXX_FLAGS "-O3 -v -g -Wall") # Use -DCMAKE_BUILD_TYPE=Release/Debug instead
+
+# Define dependencies
+link_halide()
+
 find_package(PNG REQUIRED)
-
-set(HALIDE_ROOT_DIR "")
-
-if(" ${HALIDE_ROOT_DIR}" STREQUAL " ")
-    message( FATAL_ERROR "Specify HALIDE_ROOT_DIR variable in the cmake file." )
-endif()
-
 find_library(LIBRAW_LIBRARY
     NAMES raw raw_r
     )
@@ -26,9 +23,8 @@ set(src_files
     src/Burst.cpp
     src/Burst.h)
 
-include_directories(/usr/local/lib /usr/local/include ${HALIDE_ROOT_DIR}/bin ${HALIDE_ROOT_DIR}/lib ${HALIDE_ROOT_DIR}/include ${HALIDE_ROOT_DIR}/tools)
-
-link_directories(/usr/local/lib /usr/local/include ${HALIDE_ROOT_DIR}/bin ${HALIDE_ROOT_DIR}/lib ${HALIDE_ROOT_DIR}/include ${HALIDE_ROOT_DIR}/tools)
+include_directories(/usr/local/lib /usr/local/include ${HALIDE_DISTRIB_DIR}/include ${HALIDE_DISTRIB_DIR}/tools)
+link_directories(/usr/local/lib /usr/local/include)
 
 
 add_executable(hdrplus ${src_files})
