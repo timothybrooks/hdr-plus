@@ -8,7 +8,7 @@
 #include <vector>
 #include <Halide.h>
 
-class Burst : public AbstractInputSource {
+class Burst {
 public:
     Burst(std::string dir_path, std::vector<std::string> inputs)
         : Dir(std::move(dir_path))
@@ -16,27 +16,27 @@ public:
         , Raws(LoadRaws(Dir, Inputs))
     {}
 
-    ~Burst() override = default;
+    ~Burst() = default;
 
-    int GetWidth() const override { return Raws.empty() ? -1 : Raws[0]->GetWidth(); }
+    int GetWidth() const { return Raws.empty() ? -1 : Raws[0].GetWidth(); }
 
-    int GetHeight() const override { return Raws.empty() ? -1 : Raws[0]->GetHeight(); }
+    int GetHeight() const { return Raws.empty() ? -1 : Raws[0].GetHeight(); }
 
-    int GetBlackLevel() const override { return Raws.empty() ? -1 : Raws[0]->GetBlackLevel(); }
+    int GetBlackLevel() const { return Raws.empty() ? -1 : Raws[0].GetBlackLevel(); }
 
-    int GetWhiteLevel() const override { return Raws.empty() ? -1 : Raws[0]->GetWhiteLevel(); }
+    int GetWhiteLevel() const { return Raws.empty() ? -1 : Raws[0].GetWhiteLevel(); }
 
-    WhiteBalance GetWhiteBalance() const override { return Raws.empty() ? WhiteBalance{-1, -1, -1, -1} : Raws[0]->GetWhiteBalance(); }
+    WhiteBalance GetWhiteBalance() const { return Raws.empty() ? WhiteBalance{-1, -1, -1, -1} : Raws[0].GetWhiteBalance(); }
 
     Halide::Runtime::Buffer<uint16_t> ToBuffer() const;
 
-    void CopyToBuffer(Halide::Runtime::Buffer<uint16_t>& buffer) const override;
+    void CopyToBuffer(Halide::Runtime::Buffer<uint16_t>& buffer) const;
 
 private:
     std::string Dir;
     std::vector<std::string> Inputs;
-    std::vector<AbstractInputSource::SPtr> Raws;
+    std::vector<RawImage> Raws;
 
 private:
-    static std::vector<AbstractInputSource::SPtr> LoadRaws(const std::string& dirPath, std::vector<std::string>& inputs);
+    static std::vector<RawImage> LoadRaws(const std::string& dirPath, std::vector<std::string>& inputs);
 };
