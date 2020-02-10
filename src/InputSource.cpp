@@ -17,6 +17,9 @@ RawImage::RawImage(const std::string &path)
         std::cerr << "Cannot do raw2image on " << path << " error: " << libraw_strerror(ret) << std::endl;
         throw std::runtime_error("Error opening " + path);
     }
+
+//    RawProcessor->dcraw_ppm_tiff_writer("test.tiff");
+//    RawProcessor->imgdata.color.ccm
 }
 
 WhiteBalance RawImage::GetWhiteBalance() const {

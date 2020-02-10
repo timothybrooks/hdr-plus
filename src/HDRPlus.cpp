@@ -160,7 +160,9 @@ int main(int argc, char* argv[]) {
 
     Buffer<uint8_t> output = hdr_plus.process();
 
-    if(!HDRPlus::save_png(dir_path, out_name, output)) return -1;
+    if (!HDRPlus::save_png(dir_path, out_name, output)) {
+        return EXIT_FAILURE;
+    }
 
     return 0;
 }
