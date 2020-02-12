@@ -13,14 +13,19 @@ public:
         , Tiff(TIFFStreamOpen("", &OutputStream), [](TIFF* tiff){TIFFClose(tiff);})
     {
         static const uint16_t bayerPatternDimensions[] = {2, 2};
-        static const float colorMatrix[] = {
-                1.0, 0.0, 0.0,
-                0.0, 1.0, 0.0,
-                0.0, 0.0, 1.0,
-        };
+
         const auto raw_color = libraw.imgdata.color;
-        static const float asShotNeutral[] = {raw_color.cam_mul[0], raw_color.cam_mul[1], raw_color.cam_mul[2]};
-        static const uint32_t blackLevel[] = {raw_color.black};
+        static const float colorMatrix[] = {
+            raw_color.cam_xyz[0][0], raw_color.cam_xyz[0][1], raw_color.cam_xyz[0][2],
+            raw_color.cam_xyz[1][0], raw_color.cam_xyz[1][1], raw_color.cam_xyz[1][2],
+            raw_color.cam_xyz[2][0], raw_color.cam_xyz[2][1], raw_color.cam_xyz[2][2],
+        };
+
+        static const float analogBalance[] = {1.f, 1.f, 1.f};
+
+        static const float asShotNeutral[] = {1.f / (raw_color.cam_mul[0] / raw_color.cam_mul[1]), 1.f, 1.f / (raw_color.cam_mul[2] / raw_color.cam_mul[1])};
+        //{raw_color.black}; TODO: set correct black level
+        static const float blackLevel[] = {2048.f, 2048.f, 2048.f, 2048.f};
         static const uint32_t whiteLevel[] = {raw_color.maximum};
 
         const auto tiff = Tiff.get();
@@ -40,12 +45,13 @@ public:
         TIFFSetField(tiff, TIFFTAG_MAKE, "hdr-plus");
         TIFFSetField(tiff, TIFFTAG_UNIQUECAMERAMODEL, "hdr-plus");
         TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, colorMatrix);
-        TIFFSetField(tiff, TIFFTAG_COLORMATRIX1, 9, colorMatrix);
+        TIFFSetField(tiff, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
         TIFFSetField(tiff, TIFFTAG_ASSHOTNEUTRAL, 3, asShotNeutral);
         TIFFSetField(tiff, TIFFTAG_CFALAYOUT, 1);
         TIFFSetField(tiff, TIFFTAG_CFAPLANECOLOR, 3, "\00\01\02");
-        TIFFSetField(tiff, TIFFTAG_BLACKLEVEL, 1, blackLevel);
+        TIFFSetField(tiff, TIFFTAG_BLACKLEVEL, 4, blackLevel);
         TIFFSetField(tiff, TIFFTAG_WHITELEVEL, 1, whiteLevel);
+        TIFFSetField(tiff, TIFFTAG_ANALOGBALANCE, 3, analogBalance);
     }
 
     void SetBuffer(const Halide::Runtime::Buffer<uint16_t>& buffer) const {

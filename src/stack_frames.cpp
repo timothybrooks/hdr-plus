@@ -53,10 +53,7 @@ int main(int argc, char* argv[]) {
     Halide::Buffer<uint16_t> merged = align_and_merge(burst.ToBuffer());
     std::cerr << "merged size: " << merged.width() << " " << merged.height() << std::endl;
 
-    // const std::string merged_filename = dir_path + "/merged.png";
-    // Halide::Tools::save_image(merged, merged_filename);
-
-    RawImage raw = burst.GetRaw(0);
+    const RawImage& raw = burst.GetRaw(0);
     const std::string merged_filename = dir_path + "/" + out_name;
     raw.WriteDng(merged_filename, *merged.get());
 
