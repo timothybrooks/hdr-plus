@@ -22,8 +22,3 @@ macro(link_libtiff)
     find_library(TIFFXX_LIBRARY NAMES tiffxx)
     message(STATUS "Found tiffxx: ${TIFFXX_LIBRARY}")
 endmacro()
-
-macro(link_exiv2)
-    find_package(Exiv2 REQUIRED)
-    include_directories(${EXIV2_INCLUDE_DIR})
-endmacro()

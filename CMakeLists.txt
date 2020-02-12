@@ -8,10 +8,8 @@ include("macro.cmake")
 set(CMAKE_CXX_STANDARD 11)
 
 # Define dependencies
-#add_raw2dng()
 link_halide()
 link_libtiff()
-link_exiv2()
 
 find_package(ZLIB REQUIRED)
 find_package(PNG REQUIRED)
