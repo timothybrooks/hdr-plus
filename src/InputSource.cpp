@@ -1,7 +1,9 @@
 #include "InputSource.h"
+#include "LibRaw2DngConverter.h"
 
 RawImage::RawImage(const std::string &path)
-    : RawProcessor(std::make_shared<LibRaw>())
+    : Path(path)
+    , RawProcessor(std::make_shared<LibRaw>())
 {
     std::cerr << "Opening " << path << std::endl;
     if (int err = RawProcessor->open_file(path.c_str())) {
@@ -17,9 +19,6 @@ RawImage::RawImage(const std::string &path)
         std::cerr << "Cannot do raw2image on " << path << " error: " << libraw_strerror(ret) << std::endl;
         throw std::runtime_error("Error opening " + path);
     }
-
-//    RawProcessor->dcraw_ppm_tiff_writer("test.tiff");
-//    RawProcessor->imgdata.color.ccm
 }
 
 WhiteBalance RawImage::GetWhiteBalance() const {
@@ -42,8 +41,10 @@ void RawImage::CopyToBuffer(Halide::Runtime::Buffer<uint16_t> &buffer) const {
     buffer.copy_from(raw_buffer.translated({-left, -top}));
 }
 
-void RawImage::WriteDng(const std::string &path, const Halide::Runtime::Buffer<uint16_t> &buffer) const
+void RawImage::WriteDng(const std::string &output_path, const Halide::Runtime::Buffer<uint16_t> &buffer) const
 {
-
+    LibRaw2DngConverter converter(*RawProcessor);
+    converter.SetBuffer(buffer);
+    converter.Write(output_path);
 }
 

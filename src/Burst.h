@@ -32,6 +32,8 @@ public:
 
     void CopyToBuffer(Halide::Runtime::Buffer<uint16_t>& buffer) const;
 
+    const RawImage& GetRaw(const size_t i) const;
+
 private:
     std::string Dir;
     std::vector<std::string> Inputs;

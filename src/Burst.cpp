@@ -25,3 +25,7 @@ std::vector<RawImage> Burst::LoadRaws(const std::string &dirPath, std::vector<st
     }
     return result;
 }
+
+const RawImage& Burst::GetRaw(const size_t i) const {
+    return this->Raws[i];
+}

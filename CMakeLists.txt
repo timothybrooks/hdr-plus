@@ -8,7 +8,7 @@ include("macro.cmake")
 set(CMAKE_CXX_STANDARD 11)
 
 # Define dependencies
-add_raw2dng()
+#add_raw2dng()
 link_halide()
 link_libtiff()
 link_exiv2()
@@ -24,21 +24,19 @@ set(src_files
     src/merge.cpp
     src/util.cpp
     src/InputSource.cpp
-    src/Burst.cpp)
+    src/Burst.cpp
+    src/LibRaw2DngConverter.cpp)
 
 set(header_files
     src/InputSource.h
     src/Burst.h
-    src/dngwriter.h)
+    src/dngwriter.h
+    src/LibRaw2DngConverter.h)
 
 include_directories(${HALIDE_DISTRIB_DIR}/include ${HALIDE_DISTRIB_DIR}/tools ${RAW2DNG_INCLUDE_DIRS})
 
 add_executable(hdrplus src/HDRPlus.cpp ${src_files})
-target_link_libraries(hdrplus Halide png ${LIBRAW_LIBRARY}) # ${ZLIB_LIBRARIES})
+target_link_libraries(hdrplus Halide png ${LIBRAW_LIBRARY})
 
 add_executable(stack_frames src/stack_frames.cpp ${src_files})
-target_link_libraries(stack_frames Halide ${LIBRAW_LIBRARY} ${PNG_LIBRARIES} ${TIFF_LIBRARIES} ${JPEG_LIBRARIES} ${EXIV2_LIBRARIES} ${RAW2DNG_LIBRARIES} ${ZLIB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-
-#set(RAW2DNG_LIBRARIES raw2dng_lib)
-#set(RAW2DNG_INCLUDE_DIRS ${RAW2DNG_SOURCE_DIR})
-#set(RAW2DNG_LINK_DIRS ${RAW2DNG_BINARY_DIR}/raw2dng)
+target_link_libraries(stack_frames Halide ${LIBRAW_LIBRARY} ${PNG_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})

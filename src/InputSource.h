@@ -29,5 +29,6 @@ public:
     void WriteDng(const std::string& path, const Halide::Runtime::Buffer<uint16_t>& buffer = {}) const;
 
 private:
+    std::string Path;
     std::shared_ptr<LibRaw> RawProcessor;
 };

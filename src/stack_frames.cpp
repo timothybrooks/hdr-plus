@@ -11,8 +11,6 @@
 #include <iostream>
 #include <fstream>
 
-#include <raw2dng/raw2dng.h>
-
 using namespace Halide;
 using namespace std;
 
@@ -55,14 +53,12 @@ int main(int argc, char* argv[]) {
     Halide::Buffer<uint16_t> merged = align_and_merge(burst.ToBuffer());
     std::cerr << "merged size: " << merged.width() << " " << merged.height() << std::endl;
 
-    const std::string merged_filename = dir_path + "/merged.png";
-    Halide::Tools::save_image(merged, merged_filename);
+    // const std::string merged_filename = dir_path + "/merged.png";
+    // Halide::Tools::save_image(merged, merged_filename);
 
-    // Get 0 raw and use it as recipient for merged buffer
-//    RawImage raw = burst.GetRaw(0);
-//    const std::string merged_filename = dir_path + "/" + out_name;
-//    raw.WriteDng(merged_filename, merged);
-    raw2dng(dir_path + "/" + in_names[0], "test.dng", "", false);
+    RawImage raw = burst.GetRaw(0);
+    const std::string merged_filename = dir_path + "/" + out_name;
+    raw.WriteDng(merged_filename, *merged.get());
 
     return EXIT_SUCCESS;
 }
