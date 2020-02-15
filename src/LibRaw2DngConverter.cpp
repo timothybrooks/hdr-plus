@@ -103,7 +103,13 @@ LibRaw2DngConverter::TiffPtr LibRaw2DngConverter::SetTiffFields(LibRaw2DngConver
 
     static const uint32_t white_level = raw_color.maximum;
     TIFFSetField(tiff, TIFFTAG_WHITELEVEL, 1, &white_level);
-
+    
+    if (Raw.imgdata.sizes.flip > 0) {
+        // Seems that LibRaw uses LibTIFF notation.
+        TIFFSetField(tiff, TIFFTAG_ORIENTATION, Raw.imgdata.sizes.flip);
+    } else {
+        TIFFSetField(tiff, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+    }
     return tiff_ptr;
 }
 
