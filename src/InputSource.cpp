@@ -5,6 +5,9 @@ RawImage::RawImage(const std::string &path)
     : Path(path)
     , RawProcessor(std::make_shared<LibRaw>())
 {
+//    TODO: Check LibRaw parametres.
+//    RawProcessor->imgdata.params.X = Y;
+
     std::cerr << "Opening " << path << std::endl;
     if (int err = RawProcessor->open_file(path.c_str())) {
         std::cerr << "Cannot open file " << path << " error: " << libraw_strerror(err) << std::endl;
@@ -47,4 +50,3 @@ void RawImage::WriteDng(const std::string &output_path, const Halide::Runtime::B
     converter.SetBuffer(buffer);
     converter.Write(output_path);
 }
-
