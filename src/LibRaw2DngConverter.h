@@ -1,10 +1,11 @@
 #pragma once
 
-#include <libraw/libraw.h>
 #include <sstream>
 #include <tiffio.h>
 #include <tiffio.hxx>
+
 #include <HalideBuffer.h>
+#include <libraw/libraw.h>
 
 class LibRaw2DngConverter {
     using TiffPtr = std::shared_ptr<TIFF>;
@@ -19,6 +20,5 @@ public:
 private:
     std::ostringstream OutputStream;
     const LibRaw& Raw;
-    bool RawIsDng;
     std::shared_ptr<TIFF> Tiff;
 };

@@ -1,15 +1,14 @@
-#include "Halide.h"
-#include <halide_image_io.h>
-#include "halide_load_raw.h"
-
-#include "Burst.h"
-
 #include <stdio.h>
-#include "align.h"
-#include "merge.h"
-#include "finish.h"
 #include <iostream>
 #include <fstream>
+
+#include <Halide.h>
+#include <halide_image_io.h>
+
+#include "align.h"
+#include "Burst.h"
+#include "finish.h"
+#include "merge.h"
 
 using namespace Halide;
 using namespace std;

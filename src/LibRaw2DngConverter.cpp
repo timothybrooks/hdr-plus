@@ -48,14 +48,10 @@ namespace {
 LibRaw2DngConverter::LibRaw2DngConverter(const LibRaw &raw)
     : OutputStream()
     , Raw(raw)
-    , RawIsDng(Raw.imgdata.idata.dng_version != 0)
     , Tiff(SetTiffFields(TiffPtr(TIFFStreamOpen("", &OutputStream), TIFFClose)))
 {}
 
 LibRaw2DngConverter::TiffPtr LibRaw2DngConverter::SetTiffFields(LibRaw2DngConverter::TiffPtr tiff_ptr) {
-    const auto dng_version = Raw.imgdata.idata.dng_version;
-    const bool is_dng = dng_version != 0;
-
     const auto raw_color = Raw.imgdata.color;
 
     const uint16_t bayer_pattern_dimensions[] = {2, 2};
