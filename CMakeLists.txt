@@ -36,7 +36,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${HALIDE_DISTRIB_DIR}/include ${
 set(HALIDE_TARGET "")
 set(HALIDE_TARGET_FEATURES "")
 halide_library(hdrplus_pipeline
-    SRCS src/hdrplus_pipeline.cpp
+    SRCS src/hdrplus_pipeline.cpp src/align.cpp src/merge.cpp src/finish.cpp src/util.cpp
     # GENERATOR_DEPS 
     GENERATOR_NAME hdrplus_pipeline
     # GENERATOR_ARGS

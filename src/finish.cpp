@@ -11,13 +11,13 @@ using namespace Halide::ConciseCasts;
  * levels to take advantage of the full 16-bit integer depth. This is a
  * necessary step for camera white balance levels to be valid.
  */
-Func black_white_level(Func input, const BlackPoint bp, const BlackPoint wp) {
+Func black_white_level(Func input, const Expr bp, const Expr wp) {
 
     Func output("black_white_level_output");
 
     Var x, y;
 
-    float white_factor = 65535.f / (wp - bp);
+    Expr white_factor = 65535.f / (wp - bp);
 
     output(x, y) = u16_sat((i32(input(x, y)) - bp) * white_factor);
 
@@ -29,7 +29,7 @@ Func black_white_level(Func input, const BlackPoint bp, const BlackPoint wp) {
  * color multipliers. Note that the two green channels in the bayer pattern
  * are white-balanced separately.
  */
-Func white_balance(Func input, int width, int height, const WhiteBalance &wb) {
+Func white_balance(Func input, Expr width, Expr height, const CompiletimeWhiteBalance &wb) {
 
     Func output("white_balance_output");
 
@@ -62,7 +62,7 @@ Func white_balance(Func input, int width, int height, const WhiteBalance &wb) {
  * work of Malvar et al. Assumes that data is laid out in an RG/GB pattern.
  * https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Demosaicing_ICASSP04.pdf
  */
-Func demosaic(Func input, int width, int height) {
+Func demosaic(Func input, Expr width, Expr height) {
 
     Func f0("demosaic_f0");             // G at R locations; G at B locations
     Func f1("demosaic_f1");             // R at green in R row, B column; B at green in B row, R column
@@ -179,7 +179,7 @@ Func demosaic(Func input, int width, int height) {
  * weighted as 0 to decrease amplification of saturation artifacts, which can
  * occur around bright highlights.
  */
-Func bilateral_filter(Func input, int width, int height) {
+Func bilateral_filter(Func input, Expr width, Expr height) {
 
     Func k("gauss_kernel");
     Func weights("bilateral_weights");
@@ -250,7 +250,7 @@ Func bilateral_filter(Func input, int width, int height) {
  * input in and using the result only if it falls within constraints on by what
  * factor and absolute threshold the chroma magnitudes fall.
  */
-Func desaturate_noise(Func input, int width, int height) {
+Func desaturate_noise(Func input, Expr width, Expr height) {
 
     Func output("desaturate_noise_output");
 
@@ -314,7 +314,7 @@ Func increase_saturation(Func input, float strength) {
  * will be applied iteratively in order of increasing aggressiveness, with the
  * total number of passes determined by input.
  */
-Func chroma_denoise(Func input, int width, int height, int num_passes) {
+Func chroma_denoise(Func input, Expr width, Expr height, int num_passes) {
 
     Func output = rgb_to_yuv(input);
 
@@ -341,7 +341,7 @@ Func chroma_denoise(Func input, int width, int height, int num_passes) {
  * by Mertens et al.
  * http://ntp-0.cs.ucl.ac.uk/staff/j.kautz/publications/exposure_fusion.pdf
  */
-Func combine(Func im1, Func im2, int width, int height, Func dist) {
+Func combine(Func im1, Func im2, Expr width, Expr height, Func dist) {
 
     Func init_mask1("mask1_layer_0");
     Func init_mask2("mask2_layer_0");
@@ -437,7 +437,7 @@ Func combine(Func im1, Func im2, int width, int height, Func dist) {
 /*
  * brighten -- Applies a specified gain to an input.
  */
-Func brighten(Func input, float gain) {
+Func brighten(Func input, Expr gain) {
 
     Func output("brighten_output");
 
@@ -454,7 +454,7 @@ Func brighten(Func input, float gain) {
  * with an increasing strength in each iteration to ensure a natural looking
  * dynamic range compression.
  */
-Func tone_map(Func input, int width, int height, float comp, float gain) {
+Func tone_map(Func input, Expr width, Expr height, Expr comp, Expr gain) {
 
     Func normal_dist("luma_weight_distribution");
     Func grayscale("grayscale");
@@ -481,18 +481,18 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
 
     // constants used to determine compression and gain values at each iteration
 
-    float comp_const = 1.f + comp / num_passes;
-    float gain_const = 1.f + gain / num_passes;
+    Expr comp_const = 1.f + comp / num_passes;
+    Expr gain_const = 1.f + gain / num_passes;
 
-    float comp_slope = (comp - comp_const) / (num_passes - 1);
-    float gain_slope = (gain - gain_const) / (num_passes - 1);
+    Expr comp_slope = (comp - comp_const) / (num_passes - 1);
+    Expr gain_slope = (gain - gain_const) / (num_passes - 1);
 
     for (int pass = 0; pass < num_passes; pass++) {
 
         // compute compression and gain at given iteration
 
-        float norm_comp = pass * comp_slope + comp_const;
-        float norm_gain = pass * gain_slope + gain_const;
+        Expr norm_comp = pass * comp_slope + comp_const;
+        Expr norm_gain = pass * gain_slope + gain_const;
 
         bright = brighten(dark, norm_comp);
 
@@ -672,8 +672,7 @@ Func u8bit_interleaved(Func input) {
  * and gain amounts. This produces natural-looking brightened shadows, without
  * blowing out highlights. The output values are 8-bit.
  */
-Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
-
+Halide::Func finish(Halide::Func input, Expr width, Expr height, Expr bp, Expr wp, const CompiletimeWhiteBalance &wb, const Expr c, const Expr g) {
     int denoise_passes = 1;
     float contrast_strength = 5.f;
     int black_level = 2000;
@@ -716,4 +715,8 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func sharpen_output = sharpen(contrast_output, sharpen_strength);
 
     return u8bit_interleaved(contrast_output);
+}
+
+Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
+    return finish(input, width, height, bp, wp, wb, c, g);
 }

@@ -2,13 +2,31 @@
 #define HDRPLUS_FINISH_H_
 
 #include "Halide.h"
+     
+template <class T = float>
+struct TypedWhiteBalance {
+    template<class TT>
+    TypedWhiteBalance(const TypedWhiteBalance<TT>& other)
+        : r(other.r)
+        , g0(other.g0)
+        , g1(other.g1)
+        , b(other.b)
+    {}
 
-struct WhiteBalance {
-	float r;
-	float g0;
-	float g1;
-	float b;
+    TypedWhiteBalance(T r, T g0, T g1, T b)
+        : r(r)
+        , g0(g0)
+        , g1(g1)
+        , b(b)
+    {}
+    
+    T r;
+    T g0;
+    T g1;
+    T b;
 };
+using WhiteBalance = TypedWhiteBalance<float>;
+using CompiletimeWhiteBalance = TypedWhiteBalance<Halide::Expr>;
 
 typedef uint16_t BlackPoint;
 typedef uint16_t WhitePoint;
@@ -25,5 +43,6 @@ typedef float Gain;
  * blowing out highlights. The output values are 8-bit.
  */
 Halide::Func finish(Halide::Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g);
+Halide::Func finish(Halide::Func input, Halide::Expr width, Halide::Expr height, const Halide::Expr bp, const Halide::Expr wp, const CompiletimeWhiteBalance &wb, const Halide::Expr c, const Halide::Expr g);
 
 #endif
