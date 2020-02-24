@@ -647,7 +647,7 @@ Func sharpen(Func input, float strength) {
  */
 Func u8bit_interleaved(Func input) {
 
-    Func output("8bit_interleaved_output");
+    Func output("_8bit_interleaved_output");
 
     Var c, x, y;
 

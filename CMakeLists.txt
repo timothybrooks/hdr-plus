@@ -32,22 +32,24 @@ set(header_files
     src/LibRaw2DngConverter.h)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${HALIDE_DISTRIB_DIR}/include ${HALIDE_DISTRIB_DIR}/tools ${RAW2DNG_INCLUDE_DIRS})
+include_directories(${CMAKE_BINARY_DIR}/genfiles)
 
 set(HALIDE_TARGET "")
 set(HALIDE_TARGET_FEATURES "")
 halide_library(hdrplus_pipeline
     SRCS src/hdrplus_pipeline.cpp src/align.cpp src/merge.cpp src/finish.cpp src/util.cpp
-    # GENERATOR_DEPS 
+    # GENERATOR_DEPS  # We don't have any yet
     GENERATOR_NAME hdrplus_pipeline
-    # GENERATOR_ARGS
+    # GENERATOR_ARGS  # We don't have any yet
     FUNCTION_NAME hdrplus_pipeline
-    # HALIDE_TARGET ${HALIDE_TARGET}
-    # HALIDE_TARGET_FEATURES ${HALIDE_TARGET_FEATURES}
-    #EXTRA_OUTPUTS "stmt;html;schedule") # uncomment for extra output
+    # HALIDE_TARGET ${HALIDE_TARGET}  # TODO: add option with custom HALIDE_TARGET
+    # HALIDE_TARGET_FEATURES ${HALIDE_TARGET_FEATURES}  # TODO: add option with custom HALIDE_TARGET
+    # EXTRA_OUTPUTS "stmt;html;schedule") # uncomment for extra output
     )
 
 add_executable(hdrplus bin/HDRPlus.cpp ${src_files})
-target_link_libraries(hdrplus Halide png ${LIBRAW_LIBRARY} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
+add_dependencies(hdrplus hdrplus_pipeline)
+target_link_libraries(hdrplus hdrplus_pipeline Halide png ${LIBRAW_LIBRARY} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
 
 add_executable(stack_frames bin/stack_frames.cpp ${src_files})
 target_link_libraries(stack_frames Halide ${LIBRAW_LIBRARY} ${PNG_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
