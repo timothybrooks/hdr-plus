@@ -31,10 +31,10 @@ set(header_files
     src/dngwriter.h
     src/LibRaw2DngConverter.h)
 
-include_directories(${HALIDE_DISTRIB_DIR}/include ${HALIDE_DISTRIB_DIR}/tools ${RAW2DNG_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${HALIDE_DISTRIB_DIR}/include ${HALIDE_DISTRIB_DIR}/tools ${RAW2DNG_INCLUDE_DIRS})
 
-add_executable(hdrplus src/HDRPlus.cpp ${src_files})
+add_executable(hdrplus bin/HDRPlus.cpp ${src_files})
 target_link_libraries(hdrplus Halide png ${LIBRAW_LIBRARY} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
 
-add_executable(stack_frames src/stack_frames.cpp ${src_files})
+add_executable(stack_frames bin/stack_frames.cpp ${src_files})
 target_link_libraries(stack_frames Halide ${LIBRAW_LIBRARY} ${PNG_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})

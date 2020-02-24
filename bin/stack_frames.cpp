@@ -5,10 +5,10 @@
 #include <Halide.h>
 #include <halide_image_io.h>
 
-#include "align.h"
-#include "Burst.h"
-#include "finish.h"
-#include "merge.h"
+#include <src/align.h>
+#include <src/Burst.h>
+#include <src/finish.h>
+#include <src/merge.h>
 
 using namespace Halide;
 using namespace std;
