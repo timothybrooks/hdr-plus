@@ -33,6 +33,19 @@ set(header_files
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${HALIDE_DISTRIB_DIR}/include ${HALIDE_DISTRIB_DIR}/tools ${RAW2DNG_INCLUDE_DIRS})
 
+set(HALIDE_TARGET "")
+set(HALIDE_TARGET_FEATURES "")
+halide_library(hdrplus_pipeline
+    SRCS src/hdrplus_pipeline.cpp
+    # GENERATOR_DEPS 
+    GENERATOR_NAME hdrplus_pipeline
+    # GENERATOR_ARGS
+    FUNCTION_NAME hdrplus_pipeline
+    # HALIDE_TARGET ${HALIDE_TARGET}
+    # HALIDE_TARGET_FEATURES ${HALIDE_TARGET_FEATURES}
+    #EXTRA_OUTPUTS "stmt;html;schedule") # uncomment for extra output
+    )
+
 add_executable(hdrplus bin/HDRPlus.cpp ${src_files})
 target_link_libraries(hdrplus Halide png ${LIBRAW_LIBRARY} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
 
