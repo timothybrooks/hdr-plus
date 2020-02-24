@@ -36,13 +36,11 @@ public:
         , c(c)
         , g(g)
     {
-        assert(imgs.dimensions() == 3);         // width * height * img_idx
-        assert(imgs.extent(2) >= 2);            // must have at least one alternate image
+        if (imgs.dimensions() != 3 || imgs.extent(2) < 2) {
+            throw std::invalid_argument("The input of HDRPlus must be a 3-dimensional buffer with at least two channels.");
+        }
     }
     
-    /*
-     * process -- Calls all of the main stages (align, merge, finish) of the pipeline.
-     */
     Halide::Runtime::Buffer<uint8_t> process() {
         Halide::Runtime::Buffer<uint8_t> output_img(3, width, height);
         hdrplus_pipeline(imgs, bp, wp, wb.r, wb.g0, wb.g1, wb.b, c, g, output_img);
@@ -58,6 +56,7 @@ public:
         std::string img_path = dir_path + "/" + img_name;
         std::remove(img_path.c_str());
         int stride_in_bytes = img.width() * img.channels();
+        
         if(!stbi_write_png(img_path.c_str(), img.width(), img.height(), img.channels(), img.data(), stride_in_bytes)) {
             std::cerr << "Unable to write output image '" << img_name << "'" << std::endl;
             return false;
@@ -108,18 +107,8 @@ int main(int argc, char* argv[]) {
     }
 
     Burst burst(dir_path, in_names);
-    Halide::Runtime::Buffer<uint16_t> imgs = burst.ToBuffer();
-    if (imgs.channels() < 2) {
-        return EXIT_FAILURE;
-    }
 
-    HDRPlus hdr_plus(
-        imgs,
-        burst.GetBlackLevel(),
-        burst.GetWhiteLevel(),
-        burst.GetWhiteBalance(),
-        c,
-        g);
+    HDRPlus hdr_plus(burst.ToBuffer(), burst.GetBlackLevel(), burst.GetWhiteLevel(), burst.GetWhiteBalance(), c, g);
 
     Halide::Runtime::Buffer<uint8_t> output = hdr_plus.process();
 
