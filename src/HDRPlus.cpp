@@ -145,13 +145,12 @@ int main(int argc, char* argv[]) {
     while (i < argc) in_names.push_back(argv[i++]);
 
     Burst burst(dir_path, in_names);
-
     Halide::Runtime::Buffer<uint16_t> imgs = burst.ToBuffer();
     if (imgs.channels() < 2) {
         return EXIT_FAILURE;
     }
 
-    HDRPlus hdr_plus = HDRPlus(
+    HDRPlus hdr_plus(
         imgs,
         burst.GetBlackLevel(),
         burst.GetWhiteLevel(),
@@ -160,8 +159,10 @@ int main(int argc, char* argv[]) {
         g);
 
     Buffer<uint8_t> output = hdr_plus.process();
-    
-    if(!HDRPlus::save_png(dir_path, out_name, output)) return -1;
+
+    if (!HDRPlus::save_png(dir_path, out_name, output)) {
+        return EXIT_FAILURE;
+    }
 
     return 0;
 }

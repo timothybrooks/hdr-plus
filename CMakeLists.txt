@@ -1,36 +1,40 @@
 cmake_minimum_required(VERSION 3.10)
 project(HDR_PLUS)
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
+include("macro.cmake")
 set(CMAKE_CXX_STANDARD 11)
-#set(CMAKE_CXX_FLAGS "-O3 -v -g -Wall") # Use -DCMAKE_BUILD_TYPE=Release/Debug instead
+
+# Define dependencies
+link_halide()
+link_libtiff()
+
+find_package(ZLIB REQUIRED)
 find_package(PNG REQUIRED)
-
-set(HALIDE_ROOT_DIR "")
-
-if(" ${HALIDE_ROOT_DIR}" STREQUAL " ")
-    message( FATAL_ERROR "Specify HALIDE_ROOT_DIR variable in the cmake file." )
-endif()
-
-find_library(LIBRAW_LIBRARY
-    NAMES raw raw_r
-    )
+find_package(JPEG REQUIRED)
+find_library(LIBRAW_LIBRARY NAMES raw raw_r)
 
 set(src_files
-    src/HDRPlus.cpp
     src/align.cpp
     src/finish.cpp
     src/merge.cpp
     src/util.cpp
     src/InputSource.cpp
-    src/InputSource.h
     src/Burst.cpp
-    src/Burst.h)
+    src/LibRaw2DngConverter.cpp)
 
-include_directories(/usr/local/lib /usr/local/include ${HALIDE_ROOT_DIR}/bin ${HALIDE_ROOT_DIR}/lib ${HALIDE_ROOT_DIR}/include ${HALIDE_ROOT_DIR}/tools)
+set(header_files
+    src/InputSource.h
+    src/Burst.h
+    src/dngwriter.h
+    src/LibRaw2DngConverter.h)
 
-link_directories(/usr/local/lib /usr/local/include ${HALIDE_ROOT_DIR}/bin ${HALIDE_ROOT_DIR}/lib ${HALIDE_ROOT_DIR}/include ${HALIDE_ROOT_DIR}/tools)
+include_directories(${HALIDE_DISTRIB_DIR}/include ${HALIDE_DISTRIB_DIR}/tools ${RAW2DNG_INCLUDE_DIRS})
 
+add_executable(hdrplus src/HDRPlus.cpp ${src_files})
+target_link_libraries(hdrplus Halide png ${LIBRAW_LIBRARY} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
 
-add_executable(hdrplus ${src_files})
-
-target_link_libraries(hdrplus Halide png ${LIBRAW_LIBRARY})
+add_executable(stack_frames src/stack_frames.cpp ${src_files})
+target_link_libraries(stack_frames Halide ${LIBRAW_LIBRARY} ${PNG_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
