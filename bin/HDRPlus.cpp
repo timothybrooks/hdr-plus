@@ -1,16 +1,20 @@
-#include "Halide.h"
-#include "halide_load_raw.h"
-
-#include "Burst.h"
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../include/stb_image_write.h"
-#include <stdio.h>
-#include "align.h"
-#include "merge.h"
-#include "finish.h"
 #include <iostream>
 #include <fstream>
+#include <stdio.h>
+
+#include <Halide.h>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <include/stb_image_write.h>
+
+#include <src/Burst.h>
+#include <src/halide_load_raw.h>
+
+#include <src/align.h>
+#include <src/merge.h>
+#include <src/finish.h>
+
+
 
 using namespace Halide;
 using namespace std;
