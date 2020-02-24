@@ -55,6 +55,7 @@ inline Halide::Expr idx_layer(Halide::Expr t, Halide::Expr i) { return t * T_SIZ
  * by T_SIZE_2 in each dimension. align(imgs)(tile_x, tile_y, n) is a point representing the x and y offset
  * for a tile in layer n that most closely matches that tile in the reference (relative to the reference tile's location)
  */
-Halide::Func align(const Halide::Buffer<uint16_t> imgs);
+Halide::Func align(Halide::Buffer<uint16_t> imgs);
+Halide::Func align(const Halide::Func imgs, Halide::Expr width, Halide::Expr height);
 
 #endif
