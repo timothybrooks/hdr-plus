@@ -37,15 +37,15 @@ Func box_down2(Func input, std::string name) {
 Func gauss_down4(Func input, std::string name) {
 
     Func output(name);
-    Func k(name + "_filter");
+    Buffer<uint32_t> k(5, 5, "gauss_down4_kernel");
+    k.translate({-2, -2});
 
     Var x, y, n;
     RDom r(-2, 5, -2, 5);
 
     // gaussian kernel
 
-    k(x, y) = 0;
-
+    k.fill(0);
     k(-2,-2) = 2; k(-1,-2) =  4; k(0,-2) =  5; k(1,-2) =  4; k(2,-2) = 2;
     k(-2,-1) = 4; k(-1,-1) =  9; k(0,-1) = 12; k(1,-1) =  9; k(2,-1) = 4;
     k(-2, 0) = 5; k(-1, 0) = 12; k(0, 0) = 15; k(1, 0) = 12; k(2, 0) = 5;
@@ -60,8 +60,6 @@ Func gauss_down4(Func input, std::string name) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    k.compute_root().parallel(y).parallel(x);
-
     output.compute_root().parallel(y).vectorize(x, 16);
 
     return output;
@@ -70,7 +68,7 @@ Func gauss_down4(Func input, std::string name) {
 /*
  * gauss_7x7 -- Applies a 7x7 gauss kernel with a std deviation of 4/3. Requires its input to handle boundaries.
  */
-Func gauss(Func input, Func k, RDom r, std::string name) {
+Func gauss(Func input, Buffer<float> k, RDom r, std::string name) {
 
     Func blur_x(name + "_x");
     Func output(name);
@@ -117,45 +115,32 @@ Func gauss_7x7(Func input, std::string name) {
 
     // gaussian kernel
 
-    Func k("gauss_7x7_kernel");
+    Buffer<float> k(7, "gauss_7x7_kernel");
+    k.translate({-3});
 
     Var x;
     RDom r(-3, 7);
 
-    k(x) = f32(0.f);
-
+    k.fill(0.f);
     k(-3) = 0.026267f; k(-2) = 0.100742f; k(-1) = 0.225511f; k(0) = 0.29496f; 
     k( 3) = 0.026267f; k( 2) = 0.100742f; k( 1) = 0.225511f;
 
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    k.compute_root().parallel(x);
-
     return gauss(input, k, r, name);
-
 }
 
 Func gauss_15x15(Func input, std::string name) {
 
     // gaussian kernel
 
-    Func k("gauss_7x7_kernel");
+    Buffer<float> k(15, "gauss_15x15");
+    k.translate({-7});
 
     Var x;
     RDom r(-7, 15);
 
-    k(x) = f32(0.f);
-
+    k.fill(0.f);
     k(-7) = 0.004961f; k(-6) = 0.012246f; k(-5) = 0.026304f; k(-4) = 0.049165f; k(-3) = 0.079968f; k(-2) = 0.113193f; k(-1) = 0.139431f; k(0) = 0.149464f;
     k( 7) = 0.004961f; k( 6) = 0.012246f; k( 5) = 0.026304f; k( 4) = 0.049165f; k( 3) = 0.079968f; k( 2) = 0.113193f; k( 1) = 0.139431f; 
-
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    k.compute_root().parallel(x);
 
     return gauss(input, k, r, name);
 }

@@ -64,10 +64,15 @@ Func white_balance(Func input, Expr width, Expr height, const CompiletimeWhiteBa
  */
 Func demosaic(Func input, Expr width, Expr height) {
 
-    Func f0("demosaic_f0");             // G at R locations; G at B locations
-    Func f1("demosaic_f1");             // R at green in R row, B column; B at green in B row, R column
-    Func f2("demosaic_f2");             // R at green in B row, R column; B at green in R row, B column
-    Func f3("demosaic_f3");             // R at blue in B row, B column; B at red in R row, R column
+    Buffer<int32_t> f0(5, 5, "demosaic_f0");             // G at R locations; G at B locations
+    Buffer<int32_t> f1(5, 5, "demosaic_f1");             // R at green in R row, B column; B at green in B row, R column
+    Buffer<int32_t> f2(5, 5, "demosaic_f2");             // R at green in B row, R column; B at green in R row, B column
+    Buffer<int32_t> f3(5, 5, "demosaic_f3");             // R at blue in B row, B column; B at red in R row, R column
+
+    f0.translate({-2, -2});
+    f1.translate({-2, -2});
+    f2.translate({-2, -2});
+    f3.translate({-2, -2});
 
     Func d0("demosaic_0");
     Func d1("demosaic_1");
@@ -86,10 +91,10 @@ Func demosaic(Func input, Expr width, Expr height) {
 
     // demosaic filters
 
-    f0(x,y) = 0;
-    f1(x,y) = 0;
-    f2(x,y) = 0;
-    f3(x,y) = 0;
+    f0.fill(0);
+    f1.fill(0);
+    f2.fill(0);
+    f3.fill(0);
 
     int f0_sum = 8;
     int f1_sum = 16;
@@ -129,47 +134,36 @@ Func demosaic(Func input, Expr width, Expr height) {
 
     // resulting demosaicked function
 
-    output(x, y, c) = input(x, y);                                              // initialize each channel to input mosaicked image
+    Expr R_row = y % 2 == 0;
+    Expr B_row = !R_row;
+    Expr R_col = x % 2 == 0;
+    Expr B_col = !R_col;
+    Expr at_R = c == 0;
+    Expr at_G = c == 1;
+    Expr at_B = c == 2;
 
-    // red
-    output(r1.x * 2 + 1, r1.y * 2,     0) = d1(r1.x * 2 + 1, r1.y * 2);         // R at green in R row, B column
-    output(r1.x * 2,     r1.y * 2 + 1, 0) = d2(r1.x * 2,     r1.y * 2 + 1);     // R at green in B row, R column
-    output(r1.x * 2 + 1, r1.y * 2 + 1, 0) = d3(r1.x * 2 + 1, r1.y * 2 + 1);     // R at blue in B row, B column
-
-    // green
-    output(r1.x * 2,     r1.y * 2,     1) = d0(r1.x * 2,     r1.y * 2);         // G at R locations
-    output(r1.x * 2 + 1, r1.y * 2 + 1, 1) = d0(r1.x * 2 + 1, r1.y * 2 + 1);     // G at B locations
-
-    // blue
-    output(r1.x * 2,     r1.y * 2 + 1, 2) = d1(r1.x * 2,     r1.y * 2 + 1);     // B at green in B row, R column
-    output(r1.x * 2 + 1, r1.y * 2,     2) = d2(r1.x * 2 + 1, r1.y * 2);         // B at green in R row, B column
-    output(r1.x * 2,     r1.y * 2,     2) = d3(r1.x * 2,     r1.y * 2);         // B at red in R row, R column
+    output(x, y, c) = select(at_R && R_row && B_col, d1(x, y),
+                             at_R && B_row && R_col, d2(x, y),
+                             at_R && B_row && B_col, d3(x, y),
+                             at_G && R_row && R_col, d0(x, y),
+                             at_G && B_row && B_col, d0(x, y),
+                             at_B && B_row && R_col, d1(x, y),
+                             at_B && R_row && B_col, d2(x, y),
+                             at_B && R_row && R_col, d3(x, y),
+                             input(x, y));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
-
-    f0.compute_root().parallel(y).parallel(x);
-    f1.compute_root().parallel(y).parallel(x);
-    f2.compute_root().parallel(y).parallel(x);
-    f3.compute_root().parallel(y).parallel(x);
-
     d0.compute_root().parallel(y).vectorize(x, 16);
     d1.compute_root().parallel(y).vectorize(x, 16);
     d2.compute_root().parallel(y).vectorize(x, 16);
     d3.compute_root().parallel(y).vectorize(x, 16);
 
-    output.compute_root().parallel(y).vectorize(x, 16);
-
-    output.update(0).parallel(r1.y);
-    output.update(1).parallel(r1.y);
-    output.update(2).parallel(r1.y);
-    output.update(3).parallel(r1.y);
-    output.update(4).parallel(r1.y);
-    output.update(5).parallel(r1.y);
-    output.update(6).parallel(r1.y);
-    output.update(7).parallel(r1.y);
-
+    output.compute_root().parallel(y)
+        .align_bounds(x, 2).unroll(x, 2)
+        .align_bounds(y, 2).unroll(y, 2)
+        .vectorize(x, 16);
     return output;
 }
 
@@ -181,7 +175,9 @@ Func demosaic(Func input, Expr width, Expr height) {
  */
 Func bilateral_filter(Func input, Expr width, Expr height) {
 
-    Func k("gauss_kernel");
+    Buffer<float> k(7, 7, "gauss_kernel");
+    k.translate({-3, -3});
+
     Func weights("bilateral_weights");
     Func total_weights("bilateral_total_weights");
     Func bilateral("bilateral");
@@ -192,8 +188,7 @@ Func bilateral_filter(Func input, Expr width, Expr height) {
 
     // gaussian kernel
 
-    k(dx, dy) = f32(0.f);
-
+    k.fill(0.f);
     k(-3, -3) = 0.000690f; k(-2, -3) = 0.002646f; k(-1, -3) = 0.005923f; k(0, -3) = 0.007748f; k(1, -3) = 0.005923f; k(2, -3) = 0.002646f; k(3, -3) = 0.000690f;
     k(-3, -2) = 0.002646f; k(-2, -2) = 0.010149f; k(-1, -2) = 0.022718f; k(0, -2) = 0.029715f; k(1, -2) = 0.022718f; k(2, -2) = 0.010149f; k(3, -2) = 0.002646f;
     k(-3, -1) = 0.005923f; k(-2, -1) = 0.022718f; k(-1, -1) = 0.050855f; k(0, -1) = 0.066517f; k(1, -1) = 0.050855f; k(2, -1) = 0.022718f; k(3, -1) = 0.005923f;
@@ -233,7 +228,7 @@ Func bilateral_filter(Func input, Expr width, Expr height) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    k.parallel(dy).parallel(dx).compute_root();
+    //k.parallel(dy).parallel(dx).compute_root();
 
     weights.compute_at(output, y).vectorize(x, 16);
 
@@ -423,11 +418,8 @@ Func combine(Func im1, Func im2, Expr width, Expr height, Func dist) {
     ///////////////////////////////////////////////////////////////////////////
 
     init_mask1.compute_root().parallel(y).vectorize(x, 16);
-
     accumulator.compute_root().parallel(y).vectorize(x, 16);
-
     for (int layer = 0; layer < num_layers; layer++) {
-
         accumulator.update(layer).parallel(y).vectorize(x, 16);
     }
 
@@ -530,16 +522,13 @@ Func tone_map(Func input, Expr width, Expr height, Expr comp, Expr gain) {
  */
 Func srgb(Func input) {
 
-    Func srgb_matrix("srgb_matrix");
+    Buffer<float> srgb_matrix(3, 3, "srgb_matrix");
     Func output("srgb_output");
 
     Var x, y, c;
     RDom r(0, 3);
 
     // srgb conversion matrix;
-
-    srgb_matrix(x, y) = 0.f;
-
     srgb_matrix(0, 0) =  1.964399f; srgb_matrix(1, 0) = -1.119710f; srgb_matrix(2, 0) =  0.155311f;
     srgb_matrix(0, 1) = -0.241156f; srgb_matrix(1, 1) =  1.673722f; srgb_matrix(2, 1) = -0.432566f;
     srgb_matrix(0, 2) =  0.013887f; srgb_matrix(1, 2) = -0.549820f; srgb_matrix(2, 2) =  1.535933f;
@@ -547,12 +536,6 @@ Func srgb(Func input) {
     // resulting (linear) srgb image
 
     output(x, y, c) = u16_sat(sum(srgb_matrix(r, c) * input(x, y, r)));
-
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    srgb_matrix.compute_root().parallel(y).parallel(x);
 
     return output;
 }
