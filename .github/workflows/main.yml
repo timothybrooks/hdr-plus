@@ -56,9 +56,9 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - name: Shii
-        run: |
-          mkdir -p ${{github.workspace}}/3rdparty/Halide
+#      - name: Shii
+#        run: |
+#          mkdir -p ${{github.workspace}}/3rdparty/Halide
 
       - name: Download Halide
         uses: actions/download-artifact@v1
@@ -66,25 +66,8 @@ jobs:
           name: halide-install
           path: ${{ github.workspace }}/3rdparty/Halide/
 
-      - name: Shii
-        run: |
-          echo '================='
-          ls -lha ${{ github.workspace }}/..
-          echo '================='
-          ls -lha ${{ github.workspace }}
-          ls -lha ${{ github.workspace }}/undefined/build
-          echo '================='
-          ls -lha ${{ github.workspace }}/3rdparty
-          echo '================='
-          ls -lha ${{ github.workspace }}/3rdparty/Halide
-          echo '================='
-          ls -lha ${{ github.workspace }}/3rdparty/Halide-master/install
-          echo '================='
-          #tar -xvf halide.tar
-          exit 1
-
-      - name: Install Requirements
-        run: apt -qq update && apt -qq install -y build-essential cmake
+#      - name: Install Requirements
+#        run: apt -qq update && apt -qq install -y build-essential cmake
 
       - name: Install Dependencies
         run: apt install -y libtiff-dev libraw-dev libpng-dev libjpeg-dev zlib1g-dev
@@ -99,9 +82,9 @@ jobs:
           echo '====================================='
           ls -lha ${{github.workspace}}/
           echo '====================================='
-          ls -lha ${{github.workspace}}/3rdparty
+          ls -lha ${{github.workspace}}/3rdparty/Halide
           echo '====================================='
-          cd build && cmake -DHALIDE_DISTRIB_DIR=${{github.workspace}}/3rdparty/Halide-master/install/ -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
+          cd build && cmake -DHALIDE_DISTRIB_DIR=${{github.workspace}}/3rdparty/Halide/ -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
 
       - name: Build
         working-directory: ${{github.workspace}}/build
