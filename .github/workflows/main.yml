@@ -9,41 +9,31 @@ env:
 jobs:
   build_halide:
     runs-on: ubuntu-latest
-
+    env:
+      THIRDPARTY_DIR: ${{ github.workspace }}/3rdparty
+      HALIDE_BUILD_DIR: ${{github.workspace}}/3rdparty/Halide-master/build
+      HALIDE_INSTALL_DIR: ${{github.workspace}}/3rdparty/Halide-master/install
     steps:
       - uses: actions/checkout@v1
 
-      #    - name: Install Requirements
-      #      run: apt -qq update && apt -qq install -y unzip
-
       - name: Download Halide
-        working-directory: ${{ github.workspace }}
         run: |
-          mkdir -p 3rdparty && cd 3rdparty && \
-          wget -q https://github.com/halide/Halide/archive/master.zip -O halide-master.zip && \
-          unzip -q -o halide-master.zip
+          mkdir -p ${THIRDPARTY_DIR} && cd ${THIRDPARTY_DIR}
+          wget https://github.com/halide/Halide/archive/master.zip
+          unzip -o master.zip
 
       - name: Build Halide
         working-directory: ${{ github.workspace }}/3rdparty
         run: |
-          pwd
-          cd ${{ github.workspace }}/3rdparty
-          pwd
-          mkdir -p ${{github.workspace}}/3rdparty/Halide-master/build
-          cd ${{github.workspace}}/3rdparty/Halide-master/build 
+          mkdir -p ${HALIDE_BUILD_DIR} && cd ${HALIDE_BUILD_DIR} 
 
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../install \
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${HALIDE_INSTALL_DIR} \
               -DWITH_TESTS=OFF -DWITH_APPS=OFF -DWITH_TUTORIALS=OFF \
               -DWITH_ARM=OFF -DWITH_AARCH64=OFF -DWITH_HEXAGON=OFF -DWITH_MIPS=OFF -DWITH_POWERPC=OFF -DWITH_NVPTX=OFF -DWITH_RISCV=OFF \
               ..
-          nice make -j 8 all
           make -j 8 install
-          cd ../install
-          echo "Halide install location: ${pwd}"
-          tar -cvf halide.tar *
-          ls -lha
 
-      - name: Upload Halide
+      - name: Upload Install Directory
         uses: actions/upload-artifact@v1
         with:
           name: halide-install
@@ -52,39 +42,26 @@ jobs:
   build_all:
     needs: build_halide
     runs-on: ubuntu-latest
-
+    env:
+      HALIDE_DISTRIB_DIR: ${{github.workspace}}/3rdparty/Halide
+      
     steps:
       - uses: actions/checkout@v1
-
-#      - name: Shii
-#        run: |
-#          mkdir -p ${{github.workspace}}/3rdparty/Halide
 
       - name: Download Halide
         uses: actions/download-artifact@v1
         with:
           name: halide-install
-          path: ${{ github.workspace }}/3rdparty/Halide/
-
-#      - name: Install Requirements
-#        run: apt -qq update && apt -qq install -y build-essential cmake
+          path: ${{github.workspace}}/3rdparty/Halide/
 
       - name: Install Dependencies
         run: sudo apt update && sudo apt install -y libtiff-dev libraw-dev libpng-dev libjpeg-dev zlib1g-dev
-
-      - name: Create Build Environment
-        run: rm -rf ${{github.workspace}}/build && cmake -E make_directory ${{github.workspace}}/build
 
       - name: Configure CMake
         shell: bash
         working-directory: ${{github.workspace}}/build
         run: |
-          echo '====================================='
-          ls -lha ${{github.workspace}}/
-          echo '====================================='
-          ls -lha ${{github.workspace}}/3rdparty/Halide
-          echo '====================================='
-          cd ${{github.workspace}}/build && cmake -DHALIDE_DISTRIB_DIR=${{github.workspace}}/3rdparty/Halide/ -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
+          cd ${{github.workspace}}/build && cmake -DHALIDE_DISTRIB_DIR=${HALIDE_DISTRIB_DIR} -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
 
       - name: Build
         working-directory: ${{github.workspace}}/build
