@@ -70,7 +70,7 @@ jobs:
 #        run: apt -qq update && apt -qq install -y build-essential cmake
 
       - name: Install Dependencies
-        run: apt install -y libtiff-dev libraw-dev libpng-dev libjpeg-dev zlib1g-dev
+        run: sudo apt update && sudo apt install -y libtiff-dev libraw-dev libpng-dev libjpeg-dev zlib1g-dev
 
       - name: Create Build Environment
         run: rm -rf ${{github.workspace}}/build && cmake -E make_directory ${{github.workspace}}/build
