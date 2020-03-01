@@ -61,7 +61,7 @@ jobs:
           ls -lha ${HALIDE_DISTRIB_DIR}
 
       - name: Install Dependencies
-        run: sudo -qq apt update && sudo -qq apt install -y libtiff-dev libraw-dev libpng-dev libjpeg-dev zlib1g-dev
+        run: sudo apt update && sudo apt install -y libtiff-dev libraw-dev libpng-dev libjpeg-dev zlib1g-dev
 
       - name: Configure CMake
         shell: bash
