@@ -36,8 +36,8 @@ jobs:
               -DWITH_TESTS=OFF -DWITH_APPS=OFF -DWITH_TUTORIALS=OFF \
               -DWITH_ARM=OFF -DWITH_AARCH64=OFF -DWITH_HEXAGON=OFF -DWITH_MIPS=OFF -DWITH_POWERPC=OFF -DWITH_NVPTX=OFF -DWITH_RISCV=OFF \
               ..
-          nice make -j 8 all
-          make -j 4 install
+          nice make -j all
+          make -j install
           cd ../install
           echo "Halide install location: ${pwd}"
           tar -cvf halide.tar *
@@ -90,7 +90,7 @@ jobs:
         working-directory: ${{github.workspace}}/build
         shell: bash
         # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: cd build && make -j 4 all
+        run: cd build && make -j all
 
 #      - name: Test
 #        working-directory: ${{runner.workspace}}/build
