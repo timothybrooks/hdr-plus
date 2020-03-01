@@ -84,13 +84,13 @@ jobs:
           echo '====================================='
           ls -lha ${{github.workspace}}/3rdparty/Halide
           echo '====================================='
-          cd build && cmake -DHALIDE_DISTRIB_DIR=${{github.workspace}}/3rdparty/Halide/ -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
+          cd ${{github.workspace}}/build && cmake -DHALIDE_DISTRIB_DIR=${{github.workspace}}/3rdparty/Halide/ -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
 
       - name: Build
         working-directory: ${{github.workspace}}/build
         shell: bash
         # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: cd build && make -j 8 all
+        run: cd ${{github.workspace}}/build && make -j 8 all
 
 #      - name: Test
 #        working-directory: ${{runner.workspace}}/build
