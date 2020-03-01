@@ -43,6 +43,7 @@ jobs:
     needs: build_halide
     runs-on: ubuntu-latest
     env:
+      BUILD_DIR: ${{github.workspace}}/build
       HALIDE_DISTRIB_DIR: ${{github.workspace}}/3rdparty/Halide
       
     steps:
@@ -52,22 +53,23 @@ jobs:
         uses: actions/download-artifact@v1
         with:
           name: halide-install
-          path: ${{github.workspace}}/3rdparty/Halide/
+          path: ${{jobs.build_all.env.HALIDE_DISTRIB_DIR}}
+#          path: ${{github.workspace}}/3rdparty/Halide/
 
       - name: Install Dependencies
         run: sudo apt update && sudo apt install -y libtiff-dev libraw-dev libpng-dev libjpeg-dev zlib1g-dev
 
       - name: Configure CMake
         shell: bash
-        working-directory: ${{github.workspace}}/build
+        working-directory: ${{github.workspace}}
         run: |
-          cd ${{github.workspace}}/build && cmake -DHALIDE_DISTRIB_DIR=${HALIDE_DISTRIB_DIR} -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
+          mkdir -p ${BUILD_DIR} && cd ${BUILD_DIR}
+          cmake -DHALIDE_DISTRIB_DIR=${HALIDE_DISTRIB_DIR} -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
 
       - name: Build
-        working-directory: ${{github.workspace}}/build
         shell: bash
-        # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: cd ${{github.workspace}}/build && make -j 8 all
+        working-directory: ${{github.workspace}}
+        run: cd ${BUILD_DIR} && make -j 8 all
 
 #      - name: Test
 #        working-directory: ${{runner.workspace}}/build
