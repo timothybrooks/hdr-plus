@@ -53,8 +53,7 @@ jobs:
         uses: actions/download-artifact@v1
         with:
           name: halide-install
-          path: ${{jobs.build_all.env.HALIDE_DISTRIB_DIR}}
-#          path: ${{github.workspace}}/3rdparty/Halide/
+          path: ${{github.workspace}}/3rdparty/Halide
 
       - name: List 3rdparty
         run: |
