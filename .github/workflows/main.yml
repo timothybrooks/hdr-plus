@@ -1,1 +1,117 @@
+name: BuildAll
 
+on: [push]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build_halide:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+
+      #    - name: Install Requirements
+      #      run: apt -qq update && apt -qq install -y unzip
+
+      - name: Download Halide
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p 3rdparty && cd 3rdparty && \
+          wget -q https://github.com/halide/Halide/archive/master.zip -O halide-master.zip && \
+          unzip -q -o halide-master.zip
+
+      - name: Build Halide
+        working-directory: ${{ github.workspace }}/3rdparty
+        run: |
+          pwd
+          cd ${{ github.workspace }}/3rdparty
+          pwd
+          mkdir -p ${{github.workspace}}/3rdparty/Halide-master/build
+          cd ${{github.workspace}}/3rdparty/Halide-master/build 
+
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../install \
+              -DWITH_TESTS=OFF -DWITH_APPS=OFF -DWITH_TUTORIALS=OFF \
+              -DWITH_ARM=OFF -DWITH_AARCH64=OFF -DWITH_HEXAGON=OFF -DWITH_MIPS=OFF -DWITH_POWERPC=OFF -DWITH_NVPTX=OFF -DWITH_RISCV=OFF \
+              ..
+          nice make -j 8 all
+          make -j 4 install
+          cd ../install
+          echo "Halide install location: ${pwd}"
+          tar -cvf halide.tar *
+          ls -lha
+
+      - name: Upload Halide
+        uses: actions/upload-artifact@v1
+        with:
+          name: halide-install
+          path: ${{ github.workspace }}/3rdparty/Halide-master/install/
+
+  build_all:
+    needs: build_halide
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Shii
+        run: |
+          mkdir -p ${{github.workspace}}/3rdparty/Halide
+
+      - name: Download Halide
+        uses: actions/download-artifact@v1
+        with:
+          name: halide-install
+          path: ${{ github.workspace }}/3rdparty/Halide/
+
+      - name: Shii
+        run: |
+          echo '================='
+          ls -lha ${{ github.workspace }}/..
+          echo '================='
+          ls -lha ${{ github.workspace }}
+          ls -lha ${{ github.workspace }}/undefined/build
+          echo '================='
+          ls -lha ${{ github.workspace }}/3rdparty
+          echo '================='
+          ls -lha ${{ github.workspace }}/3rdparty/Halide
+          echo '================='
+          ls -lha ${{ github.workspace }}/3rdparty/Halide-master/install
+          echo '================='
+          #tar -xvf halide.tar
+          exit 1
+
+      - name: Install Requirements
+        run: apt -qq update && apt -qq install -y build-essential cmake
+
+      - name: Install Dependencies
+        run: apt install -y libtiff-dev libraw-dev libpng-dev libjpeg-dev zlib1g-dev
+
+      - name: Create Build Environment
+        run: rm -rf ${{github.workspace}}/build && cmake -E make_directory ${{github.workspace}}/build
+
+      - name: Configure CMake
+        shell: bash
+        working-directory: ${{github.workspace}}/build
+        run: |
+          echo '====================================='
+          ls -lha ${{github.workspace}}/
+          echo '====================================='
+          ls -lha ${{github.workspace}}/3rdparty
+          echo '====================================='
+          cd build && cmake -DHALIDE_DISTRIB_DIR=${{github.workspace}}/3rdparty/Halide-master/install/ -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
+
+      - name: Build
+        working-directory: ${{github.workspace}}/build
+        shell: bash
+        # Execute the build.  You can specify a specific target with "--target <NAME>"
+        run: cd build && make -j 4 all
+
+#      - name: Test
+#        working-directory: ${{runner.workspace}}/build
+#        shell: bash
+#        # Execute tests defined by the CMake configuration.  
+#        # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
+#        run: ctest -C $BUILD_TYPE
