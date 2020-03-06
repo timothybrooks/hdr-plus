@@ -11,13 +11,13 @@ using namespace Halide::ConciseCasts;
  * levels to take advantage of the full 16-bit integer depth. This is a
  * necessary step for camera white balance levels to be valid.
  */
-Func black_white_level(Func input, const BlackPoint bp, const BlackPoint wp) {
+Func black_white_level(Func input, const Expr bp, const Expr wp) {
 
     Func output("black_white_level_output");
 
     Var x, y;
 
-    float white_factor = 65535.f / (wp - bp);
+    Expr white_factor = 65535.f / (wp - bp);
 
     output(x, y) = u16_sat((i32(input(x, y)) - bp) * white_factor);
 
@@ -29,7 +29,7 @@ Func black_white_level(Func input, const BlackPoint bp, const BlackPoint wp) {
  * color multipliers. Note that the two green channels in the bayer pattern
  * are white-balanced separately.
  */
-Func white_balance(Func input, int width, int height, const WhiteBalance &wb) {
+Func white_balance(Func input, Expr width, Expr height, const CompiletimeWhiteBalance &wb) {
 
     Func output("white_balance_output");
 
@@ -62,12 +62,17 @@ Func white_balance(Func input, int width, int height, const WhiteBalance &wb) {
  * work of Malvar et al. Assumes that data is laid out in an RG/GB pattern.
  * https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Demosaicing_ICASSP04.pdf
  */
-Func demosaic(Func input, int width, int height) {
+Func demosaic(Func input, Expr width, Expr height) {
 
-    Func f0("demosaic_f0");             // G at R locations; G at B locations
-    Func f1("demosaic_f1");             // R at green in R row, B column; B at green in B row, R column
-    Func f2("demosaic_f2");             // R at green in B row, R column; B at green in R row, B column
-    Func f3("demosaic_f3");             // R at blue in B row, B column; B at red in R row, R column
+    Buffer<int32_t> f0(5, 5, "demosaic_f0");             // G at R locations; G at B locations
+    Buffer<int32_t> f1(5, 5, "demosaic_f1");             // R at green in R row, B column; B at green in B row, R column
+    Buffer<int32_t> f2(5, 5, "demosaic_f2");             // R at green in B row, R column; B at green in R row, B column
+    Buffer<int32_t> f3(5, 5, "demosaic_f3");             // R at blue in B row, B column; B at red in R row, R column
+
+    f0.translate({-2, -2});
+    f1.translate({-2, -2});
+    f2.translate({-2, -2});
+    f3.translate({-2, -2});
 
     Func d0("demosaic_0");
     Func d1("demosaic_1");
@@ -86,10 +91,10 @@ Func demosaic(Func input, int width, int height) {
 
     // demosaic filters
 
-    f0(x,y) = 0;
-    f1(x,y) = 0;
-    f2(x,y) = 0;
-    f3(x,y) = 0;
+    f0.fill(0);
+    f1.fill(0);
+    f2.fill(0);
+    f3.fill(0);
 
     int f0_sum = 8;
     int f1_sum = 16;
@@ -129,47 +134,36 @@ Func demosaic(Func input, int width, int height) {
 
     // resulting demosaicked function
 
-    output(x, y, c) = input(x, y);                                              // initialize each channel to input mosaicked image
+    Expr R_row = y % 2 == 0;
+    Expr B_row = !R_row;
+    Expr R_col = x % 2 == 0;
+    Expr B_col = !R_col;
+    Expr at_R = c == 0;
+    Expr at_G = c == 1;
+    Expr at_B = c == 2;
 
-    // red
-    output(r1.x * 2 + 1, r1.y * 2,     0) = d1(r1.x * 2 + 1, r1.y * 2);         // R at green in R row, B column
-    output(r1.x * 2,     r1.y * 2 + 1, 0) = d2(r1.x * 2,     r1.y * 2 + 1);     // R at green in B row, R column
-    output(r1.x * 2 + 1, r1.y * 2 + 1, 0) = d3(r1.x * 2 + 1, r1.y * 2 + 1);     // R at blue in B row, B column
-
-    // green
-    output(r1.x * 2,     r1.y * 2,     1) = d0(r1.x * 2,     r1.y * 2);         // G at R locations
-    output(r1.x * 2 + 1, r1.y * 2 + 1, 1) = d0(r1.x * 2 + 1, r1.y * 2 + 1);     // G at B locations
-
-    // blue
-    output(r1.x * 2,     r1.y * 2 + 1, 2) = d1(r1.x * 2,     r1.y * 2 + 1);     // B at green in B row, R column
-    output(r1.x * 2 + 1, r1.y * 2,     2) = d2(r1.x * 2 + 1, r1.y * 2);         // B at green in R row, B column
-    output(r1.x * 2,     r1.y * 2,     2) = d3(r1.x * 2,     r1.y * 2);         // B at red in R row, R column
+    output(x, y, c) = select(at_R && R_row && B_col, d1(x, y),
+                             at_R && B_row && R_col, d2(x, y),
+                             at_R && B_row && B_col, d3(x, y),
+                             at_G && R_row && R_col, d0(x, y),
+                             at_G && B_row && B_col, d0(x, y),
+                             at_B && B_row && R_col, d1(x, y),
+                             at_B && R_row && B_col, d2(x, y),
+                             at_B && R_row && R_col, d3(x, y),
+                             input(x, y));
 
     ///////////////////////////////////////////////////////////////////////////
     // schedule
     ///////////////////////////////////////////////////////////////////////////
-
-    f0.compute_root().parallel(y).parallel(x);
-    f1.compute_root().parallel(y).parallel(x);
-    f2.compute_root().parallel(y).parallel(x);
-    f3.compute_root().parallel(y).parallel(x);
-
     d0.compute_root().parallel(y).vectorize(x, 16);
     d1.compute_root().parallel(y).vectorize(x, 16);
     d2.compute_root().parallel(y).vectorize(x, 16);
     d3.compute_root().parallel(y).vectorize(x, 16);
 
-    output.compute_root().parallel(y).vectorize(x, 16);
-
-    output.update(0).parallel(r1.y);
-    output.update(1).parallel(r1.y);
-    output.update(2).parallel(r1.y);
-    output.update(3).parallel(r1.y);
-    output.update(4).parallel(r1.y);
-    output.update(5).parallel(r1.y);
-    output.update(6).parallel(r1.y);
-    output.update(7).parallel(r1.y);
-
+    output.compute_root().parallel(y)
+        .align_bounds(x, 2).unroll(x, 2)
+        .align_bounds(y, 2).unroll(y, 2)
+        .vectorize(x, 16);
     return output;
 }
 
@@ -179,9 +173,11 @@ Func demosaic(Func input, int width, int height) {
  * weighted as 0 to decrease amplification of saturation artifacts, which can
  * occur around bright highlights.
  */
-Func bilateral_filter(Func input, int width, int height) {
+Func bilateral_filter(Func input, Expr width, Expr height) {
 
-    Func k("gauss_kernel");
+    Buffer<float> k(7, 7, "gauss_kernel");
+    k.translate({-3, -3});
+
     Func weights("bilateral_weights");
     Func total_weights("bilateral_total_weights");
     Func bilateral("bilateral");
@@ -192,8 +188,7 @@ Func bilateral_filter(Func input, int width, int height) {
 
     // gaussian kernel
 
-    k(dx, dy) = f32(0.f);
-
+    k.fill(0.f);
     k(-3, -3) = 0.000690f; k(-2, -3) = 0.002646f; k(-1, -3) = 0.005923f; k(0, -3) = 0.007748f; k(1, -3) = 0.005923f; k(2, -3) = 0.002646f; k(3, -3) = 0.000690f;
     k(-3, -2) = 0.002646f; k(-2, -2) = 0.010149f; k(-1, -2) = 0.022718f; k(0, -2) = 0.029715f; k(1, -2) = 0.022718f; k(2, -2) = 0.010149f; k(3, -2) = 0.002646f;
     k(-3, -1) = 0.005923f; k(-2, -1) = 0.022718f; k(-1, -1) = 0.050855f; k(0, -1) = 0.066517f; k(1, -1) = 0.050855f; k(2, -1) = 0.022718f; k(3, -1) = 0.005923f;
@@ -233,7 +228,7 @@ Func bilateral_filter(Func input, int width, int height) {
     // schedule
     ///////////////////////////////////////////////////////////////////////////
 
-    k.parallel(dy).parallel(dx).compute_root();
+    //k.parallel(dy).parallel(dx).compute_root();
 
     weights.compute_at(output, y).vectorize(x, 16);
 
@@ -250,7 +245,7 @@ Func bilateral_filter(Func input, int width, int height) {
  * input in and using the result only if it falls within constraints on by what
  * factor and absolute threshold the chroma magnitudes fall.
  */
-Func desaturate_noise(Func input, int width, int height) {
+Func desaturate_noise(Func input, Expr width, Expr height) {
 
     Func output("desaturate_noise_output");
 
@@ -314,7 +309,7 @@ Func increase_saturation(Func input, float strength) {
  * will be applied iteratively in order of increasing aggressiveness, with the
  * total number of passes determined by input.
  */
-Func chroma_denoise(Func input, int width, int height, int num_passes) {
+Func chroma_denoise(Func input, Expr width, Expr height, int num_passes) {
 
     Func output = rgb_to_yuv(input);
 
@@ -341,7 +336,7 @@ Func chroma_denoise(Func input, int width, int height, int num_passes) {
  * by Mertens et al.
  * http://ntp-0.cs.ucl.ac.uk/staff/j.kautz/publications/exposure_fusion.pdf
  */
-Func combine(Func im1, Func im2, int width, int height, Func dist) {
+Func combine(Func im1, Func im2, Expr width, Expr height, Func dist) {
 
     Func init_mask1("mask1_layer_0");
     Func init_mask2("mask2_layer_0");
@@ -423,11 +418,8 @@ Func combine(Func im1, Func im2, int width, int height, Func dist) {
     ///////////////////////////////////////////////////////////////////////////
 
     init_mask1.compute_root().parallel(y).vectorize(x, 16);
-
     accumulator.compute_root().parallel(y).vectorize(x, 16);
-
     for (int layer = 0; layer < num_layers; layer++) {
-
         accumulator.update(layer).parallel(y).vectorize(x, 16);
     }
 
@@ -437,7 +429,7 @@ Func combine(Func im1, Func im2, int width, int height, Func dist) {
 /*
  * brighten -- Applies a specified gain to an input.
  */
-Func brighten(Func input, float gain) {
+Func brighten(Func input, Expr gain) {
 
     Func output("brighten_output");
 
@@ -454,7 +446,7 @@ Func brighten(Func input, float gain) {
  * with an increasing strength in each iteration to ensure a natural looking
  * dynamic range compression.
  */
-Func tone_map(Func input, int width, int height, float comp, float gain) {
+Func tone_map(Func input, Expr width, Expr height, Expr comp, Expr gain) {
 
     Func normal_dist("luma_weight_distribution");
     Func grayscale("grayscale");
@@ -481,18 +473,18 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
 
     // constants used to determine compression and gain values at each iteration
 
-    float comp_const = 1.f + comp / num_passes;
-    float gain_const = 1.f + gain / num_passes;
+    Expr comp_const = 1.f + comp / num_passes;
+    Expr gain_const = 1.f + gain / num_passes;
 
-    float comp_slope = (comp - comp_const) / (num_passes - 1);
-    float gain_slope = (gain - gain_const) / (num_passes - 1);
+    Expr comp_slope = (comp - comp_const) / (num_passes - 1);
+    Expr gain_slope = (gain - gain_const) / (num_passes - 1);
 
     for (int pass = 0; pass < num_passes; pass++) {
 
         // compute compression and gain at given iteration
 
-        float norm_comp = pass * comp_slope + comp_const;
-        float norm_gain = pass * gain_slope + gain_const;
+        Expr norm_comp = pass * comp_slope + comp_const;
+        Expr norm_gain = pass * gain_slope + gain_const;
 
         bright = brighten(dark, norm_comp);
 
@@ -530,16 +522,13 @@ Func tone_map(Func input, int width, int height, float comp, float gain) {
  */
 Func srgb(Func input) {
 
-    Func srgb_matrix("srgb_matrix");
+    Buffer<float> srgb_matrix(3, 3, "srgb_matrix");
     Func output("srgb_output");
 
     Var x, y, c;
     RDom r(0, 3);
 
     // srgb conversion matrix;
-
-    srgb_matrix(x, y) = 0.f;
-
     srgb_matrix(0, 0) =  1.964399f; srgb_matrix(1, 0) = -1.119710f; srgb_matrix(2, 0) =  0.155311f;
     srgb_matrix(0, 1) = -0.241156f; srgb_matrix(1, 1) =  1.673722f; srgb_matrix(2, 1) = -0.432566f;
     srgb_matrix(0, 2) =  0.013887f; srgb_matrix(1, 2) = -0.549820f; srgb_matrix(2, 2) =  1.535933f;
@@ -547,12 +536,6 @@ Func srgb(Func input) {
     // resulting (linear) srgb image
 
     output(x, y, c) = u16_sat(sum(srgb_matrix(r, c) * input(x, y, r)));
-
-    ///////////////////////////////////////////////////////////////////////////
-    // schedule
-    ///////////////////////////////////////////////////////////////////////////
-
-    srgb_matrix.compute_root().parallel(y).parallel(x);
 
     return output;
 }
@@ -647,7 +630,7 @@ Func sharpen(Func input, float strength) {
  */
 Func u8bit_interleaved(Func input) {
 
-    Func output("8bit_interleaved_output");
+    Func output("_8bit_interleaved_output");
 
     Var c, x, y;
 
@@ -672,8 +655,7 @@ Func u8bit_interleaved(Func input) {
  * and gain amounts. This produces natural-looking brightened shadows, without
  * blowing out highlights. The output values are 8-bit.
  */
-Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
-
+Halide::Func finish(Halide::Func input, Expr width, Expr height, Expr bp, Expr wp, const CompiletimeWhiteBalance &wb, const Expr c, const Expr g) {
     int denoise_passes = 1;
     float contrast_strength = 5.f;
     int black_level = 2000;
@@ -716,4 +698,8 @@ Func finish(Func input, int width, int height, const BlackPoint bp, const WhiteP
     Func sharpen_output = sharpen(contrast_output, sharpen_strength);
 
     return u8bit_interleaved(contrast_output);
+}
+
+Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
+    return finish(input, width, height, bp, wp, wb, c, g);
 }

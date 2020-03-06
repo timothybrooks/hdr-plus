@@ -65,7 +65,7 @@ Func align_layer(Func layer, Func prev_alignment, Point prev_min, Point prev_max
  * by T_SIZE_2 in each dimension. align(imgs)(tile_x, tile_y, n) is a point representing the x and y offset
  * for a tile in layer n that most closely matches that tile in the reference (relative to the reference tile's location)
  */
-Func align(const Buffer<uint16_t> imgs) {
+Func align(const Halide::Func imgs, Halide::Expr width, Halide::Expr height) {
 
     Func alignment_3("layer_3_alignment");
     Func alignment("alignment");
@@ -74,7 +74,7 @@ Func align(const Buffer<uint16_t> imgs) {
 
     // mirror input with overlapping edges
 
-    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs, 0, imgs.width(), 0, imgs.height());
+    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs, 0, width, 0, height);
 
     // downsampled layers for alignment
 
@@ -107,8 +107,8 @@ Func align(const Buffer<uint16_t> imgs) {
 
     // number of tiles in the x and y dimensions
 
-    int num_tx = imgs.width() / T_SIZE_2 - 1;
-    int num_ty = imgs.height() / T_SIZE_2 - 1;
+    Expr num_tx = width / T_SIZE_2 - 1;
+    Expr num_ty = height / T_SIZE_2 - 1;
 
     // final alignment offsets for the original mosaic image; tiles outside of the bounds use the nearest alignment offset
 
@@ -117,4 +117,9 @@ Func align(const Buffer<uint16_t> imgs) {
     Func alignment_repeat = BoundaryConditions::repeat_edge(alignment, 0, num_tx, 0, num_ty);
     
     return alignment_repeat;
+}
+
+Halide::Func align(Halide::Buffer<uint16_t> imgs) {
+    Halide::Func imgs_function(imgs);
+    return align(imgs_function, imgs.width(), imgs.height());
 }

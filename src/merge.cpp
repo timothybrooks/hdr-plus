@@ -14,7 +14,7 @@ using namespace Halide::ConciseCasts;
  * tile. Thresholds L1 scores so that tiles above a certain distance are completely
  * discounted, and tiles below a certain distance are assumed to be perfectly aligned.
  */
-Func merge_temporal(Buffer<uint16_t> imgs, Func alignment) {
+Func merge_temporal(Halide::Func imgs, Expr width, Expr height, Expr frames, Func alignment) {
 
     Func weight("merge_temporal_weights");
     Func total_weight("merge_temporal_total_weights");
@@ -22,11 +22,11 @@ Func merge_temporal(Buffer<uint16_t> imgs, Func alignment) {
 
     Var ix, iy, tx, ty, n;
     RDom r0(0, 16, 0, 16);                          // reduction over pixels in downsampled tile
-    RDom r1(1, imgs.extent(2) - 1);                 // reduction over alternate images
+    RDom r1(1, frames - 1);                 // reduction over alternate images
 
     // mirror input with overlapping edges
 
-    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs, 0, imgs.width(), 0, imgs.height());
+    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs, 0, width, 0, height);
 
     // downsampled layer for computing L1 distances
 
@@ -146,9 +146,11 @@ Func merge_spatial(Func input) {
  * merge -- fully merges aligned frames in the temporal and spatial
  * dimension to produce one denoised bayer frame.
  */
-Func merge(Buffer<uint16_t> imgs, Func alignment) {
-
-    Func merge_temporal_output = merge_temporal(imgs, alignment);
-
+Func merge(Halide::Func imgs, Halide::Expr width, Halide::Expr height, Halide::Expr frames, Halide::Func alignment) {
+    Func merge_temporal_output = merge_temporal(imgs, width, height, frames, alignment);
     return merge_spatial(merge_temporal_output);
+}
+
+Halide::Func merge(Halide::Buffer<uint16_t> imgs, Halide::Func alignment) {
+    return merge(Halide::Func(imgs), imgs.width(), imgs.height(), imgs.extent(2), alignment);
 }
