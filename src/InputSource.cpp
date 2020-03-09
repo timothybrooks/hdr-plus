@@ -122,7 +122,6 @@ Halide::Runtime::Buffer<float> RawImage::GetColorCorrectionMatrix() const {
     Halide::Runtime::Buffer<float> ccm(3, 3);
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
-            std::cerr << "raw_color.rgb_cam[i][j]: " << raw_color.rgb_cam[i][j] << std::endl;
             ccm(i, j) = raw_color.rgb_cam[j][i];
         }
     }
