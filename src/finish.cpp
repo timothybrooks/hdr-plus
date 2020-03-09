@@ -520,21 +520,19 @@ Func tone_map(Func input, Expr width, Expr height, Expr comp, Expr gain) {
  * dcraw sRGB profile conversion.
  * https://www.cybercom.net/~dcoffin/dcraw/
  */
-Func srgb(Func input) {
-
-    Buffer<float> srgb_matrix(3, 3, "srgb_matrix");
+Func srgb(Func input, Func srgb_matrix) {
     Func output("srgb_output");
 
     Var x, y, c;
     RDom r(0, 3);
 
-    // srgb conversion matrix;
-    srgb_matrix(0, 0) =  1.964399f; srgb_matrix(1, 0) = -1.119710f; srgb_matrix(2, 0) =  0.155311f;
-    srgb_matrix(0, 1) = -0.241156f; srgb_matrix(1, 1) =  1.673722f; srgb_matrix(2, 1) = -0.432566f;
-    srgb_matrix(0, 2) =  0.013887f; srgb_matrix(1, 2) = -0.549820f; srgb_matrix(2, 2) =  1.535933f;
+//    Buffer<float> srgb_matrix(3, 3, "srgb_matrix");
+//    original hardcoded values, just for reference:
+//    srgb_matrix(0, 0) =  1.964399f; srgb_matrix(1, 0) = -1.119710f; srgb_matrix(2, 0) =  0.155311f;
+//    srgb_matrix(0, 1) = -0.241156f; srgb_matrix(1, 1) =  1.673722f; srgb_matrix(2, 1) = -0.432566f;
+//    srgb_matrix(0, 2) =  0.013887f; srgb_matrix(1, 2) = -0.549820f; srgb_matrix(2, 2) =  1.535933f;
 
     // resulting (linear) srgb image
-
     output(x, y, c) = u16_sat(sum(srgb_matrix(r, c) * input(x, y, r)));
 
     return output;
@@ -647,6 +645,18 @@ Func u8bit_interleaved(Func input) {
     return output;
 }
 
+Halide::Func shift_bayer_to_rggb(Halide::Func input, const Halide::Expr cfa_pattern) {
+    Func output("rggb_input");
+    Var x, y, c;
+    output(x, y) = select(
+        cfa_pattern == int(CfaPattern::CFA_RGGB), input(x, y),
+        cfa_pattern == int(CfaPattern::CFA_GRBG), input(x + 1, y),
+        cfa_pattern == int(CfaPattern::CFA_GBRG), input(x, y + 1),
+        cfa_pattern == int(CfaPattern::CFA_BGGR), input(x + 1, y + 1),
+        0);
+    return output;
+}
+
 /*
  * finish -- Applies a series of standard local and global image processing
  * operations to an input mosaicked image, producing a pleasant color output.
@@ -655,15 +665,16 @@ Func u8bit_interleaved(Func input) {
  * and gain amounts. This produces natural-looking brightened shadows, without
  * blowing out highlights. The output values are 8-bit.
  */
-Halide::Func finish(Halide::Func input, Expr width, Expr height, Expr bp, Expr wp, const CompiletimeWhiteBalance &wb, const Expr c, const Expr g) {
+Halide::Func finish(Halide::Func input, Expr width, Expr height, Expr bp, Expr wp, const CompiletimeWhiteBalance &wb, const Expr cfa_pattern, Halide::Func ccm, const Expr c, const Expr g) {
     int denoise_passes = 1;
     float contrast_strength = 5.f;
     int black_level = 2000;
     float sharpen_strength = 2.f;
 
+    Func bayer_shifted = shift_bayer_to_rggb(input, cfa_pattern);
+    
     // 1. Black-level subtraction and white-level scaling
-
-    Func black_white_level_output = black_white_level(Func(input), bp, wp);
+    Func black_white_level_output = black_white_level(bayer_shifted, bp, wp);
 
     // 2. White balancing
 
@@ -679,7 +690,7 @@ Halide::Func finish(Halide::Func input, Expr width, Expr height, Expr bp, Expr w
 
     // 5. sRGB color correction
 
-    Func srgb_output = srgb(demosaic_output);
+    Func srgb_output = srgb(demosaic_output, ccm);
 
     // 6. Tone mapping
 
@@ -700,6 +711,6 @@ Halide::Func finish(Halide::Func input, Expr width, Expr height, Expr bp, Expr w
     return u8bit_interleaved(contrast_output);
 }
 
-Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g) {
-    return finish(input, width, height, bp, wp, wb, c, g);
+Func finish(Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const CfaPattern cfa, Halide::Func ccm, const Compression c, const Gain g) {
+    return finish(input, width, height, bp, wp, wb, cfa, ccm, c, g);
 }

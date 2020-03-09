@@ -6,7 +6,6 @@
 
 #include <string>
 #include <vector>
-#include <Halide.h>
 
 class Burst {
 public:
@@ -22,11 +21,15 @@ public:
 
     int GetHeight() const { return Raws.empty() ? -1 : Raws[0].GetHeight(); }
 
-    int GetBlackLevel() const { return Raws.empty() ? -1 : Raws[0].GetBlackLevel(); }
+    int GetBlackLevel() const { return Raws.empty() ? -1 : Raws[0].GetScalarBlackLevel(); }
 
     int GetWhiteLevel() const { return Raws.empty() ? -1 : Raws[0].GetWhiteLevel(); }
 
     WhiteBalance GetWhiteBalance() const { return Raws.empty() ? WhiteBalance{-1, -1, -1, -1} : Raws[0].GetWhiteBalance(); }
+
+    CfaPattern GetCfaPattern() const { return Raws.empty() ? CfaPattern::CFA_UNKNOWN : Raws[0].GetCfaPattern(); }
+    
+    Halide::Runtime::Buffer<float> GetColorCorrectionMatrix() const { return Raws.empty() ? Halide::Runtime::Buffer<float>() : Raws[0].GetColorCorrectionMatrix(); }
 
     Halide::Runtime::Buffer<uint16_t> ToBuffer() const;
 

@@ -15,35 +15,38 @@
  * processes main stages of the pipeline.
  */
 class HDRPlus {
-    Halide::Runtime::Buffer<uint16_t> imgs;
+    const Burst& burst;
 public:
-    const int width;
-    const int height;
-    
-    const BlackPoint bp;
-    const WhitePoint wp;
-    const WhiteBalance wb;
     const Compression c;
     const Gain g;
     
-    HDRPlus(Halide::Runtime::Buffer<uint16_t> imgs, BlackPoint bp, WhitePoint wp, WhiteBalance wb, Compression c, Gain g)
-        : imgs(imgs)
-        , width(imgs.width())
-        , height(imgs.height())
-        , bp(bp)
-        , wp(wp)
-        , wb(wb)
+    HDRPlus(Burst burst, const Compression  c, const Gain g)
+        : burst(burst)
         , c(c)
         , g(g)
     {
-        if (imgs.dimensions() != 3 || imgs.extent(2) < 2) {
-            throw std::invalid_argument("The input of HDRPlus must be a 3-dimensional buffer with at least two channels.");
-        }
     }
     
     Halide::Runtime::Buffer<uint8_t> process() {
+        const int width = burst.GetWidth();
+        const int height = burst.GetHeight();
+
         Halide::Runtime::Buffer<uint8_t> output_img(3, width, height);
-        hdrplus_pipeline(imgs, bp, wp, wb.r, wb.g0, wb.g1, wb.b, c, g, output_img);
+
+        std::cerr << "Black point: " << burst.GetBlackLevel() << std::endl;
+        std::cerr << "White point: " << burst.GetWhiteLevel() << std::endl;
+        
+        const WhiteBalance wb = burst.GetWhiteBalance();
+        std::cerr << "RGGB: " << wb.r << " " << wb.g0 << " " << wb.g1 << " " << wb.b << std::endl;
+
+        Halide::Runtime::Buffer<uint16_t> imgs = burst.ToBuffer();
+        if (imgs.dimensions() != 3 || imgs.extent(2) < 2) {
+            throw std::invalid_argument("The input of HDRPlus must be a 3-dimensional buffer with at least two channels.");
+        }
+
+        const int cfa_pattern = static_cast<int>(burst.GetCfaPattern());
+        auto ccm = burst.GetColorCorrectionMatrix();
+        hdrplus_pipeline(imgs, burst.GetBlackLevel(), burst.GetWhiteLevel(), wb.r, wb.g0, wb.g1, wb.b, cfa_pattern, ccm, c, g, output_img);
         
         // transpose to account for interleaved layout
         output_img.transpose(0, 1);
@@ -53,11 +56,10 @@ public:
     }
     
     static bool save_png(const std::string& dir_path, const std::string& img_name, const Halide::Runtime::Buffer<uint8_t> &img) {
-        std::string img_path = dir_path + "/" + img_name;
-        std::remove(img_path.c_str());
-        int stride_in_bytes = img.width() * img.channels();
-        
-        if(!stbi_write_png(img_path.c_str(), img.width(), img.height(), img.channels(), img.data(), stride_in_bytes)) {
+        const std::string img_path = dir_path + "/" + img_name;
+
+        const int stride_in_bytes = img.width() * img.channels();
+        if (!stbi_write_png(img_path.c_str(), img.width(), img.height(), img.channels(), img.data(), stride_in_bytes)) {
             std::cerr << "Unable to write output image '" << img_name << "'" << std::endl;
             return false;
         }
@@ -108,7 +110,7 @@ int main(int argc, char* argv[]) {
 
     Burst burst(dir_path, in_names);
 
-    HDRPlus hdr_plus(burst.ToBuffer(), burst.GetBlackLevel(), burst.GetWhiteLevel(), burst.GetWhiteBalance(), c, g);
+    HDRPlus hdr_plus(burst, c, g);
 
     Halide::Runtime::Buffer<uint8_t> output = hdr_plus.process();
 

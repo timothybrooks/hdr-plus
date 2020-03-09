@@ -16,6 +16,9 @@ namespace {
         Input<float> white_balance_g0{"white_balance_g0"};
         Input<float> white_balance_g1{"white_balance_g1"};
         Input<float> white_balance_b{"white_balance_b"};
+        Input<int> cfa_pattern{"cfa_pattern"};
+        Input<Halide::Buffer<float>> ccm{"ccm", 2}; // ccm - color correction matrix
+        
         Input<float> compression{"compression"};
         Input<float> gain{"gain"};
 
@@ -27,7 +30,7 @@ namespace {
             Func alignment = align(inputs, inputs.width(), inputs.height());
             Func merged = merge(inputs, inputs.width(), inputs.height(), inputs.dim(2).extent(), alignment);
             CompiletimeWhiteBalance wb{ white_balance_r, white_balance_g0, white_balance_g1, white_balance_b };
-            Func finished = finish(merged, inputs.width(), inputs.height(), black_point, white_point, wb, compression, gain);
+            Func finished = finish(merged, inputs.width(), inputs.height(), black_point, white_point, wb, cfa_pattern, ccm, compression, gain);
             output = finished;
             // Schedule handled inside included functions
         }
