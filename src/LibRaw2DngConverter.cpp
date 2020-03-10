@@ -2,57 +2,19 @@
 
 #include <unordered_map>
 
-namespace {
-    std::array<float, 4> GetBlackLevel(const libraw_colordata_t &raw_color) {
-        // See https://www.libraw.org/node/2471
-        const auto base_black_level = static_cast<float>(raw_color.black);
+#include <libraw/libraw.h>
 
-        std::array<float, 4> black_level = {
-            base_black_level + static_cast<float>(raw_color.cblack[0]),
-            base_black_level + static_cast<float>(raw_color.cblack[1]),
-            base_black_level + static_cast<float>(raw_color.cblack[2]),
-            base_black_level + static_cast<float>(raw_color.cblack[3])
-        };
+#include "InputSource.h"
 
-        if (raw_color.cblack[4] == 2 && raw_color.cblack[5] == 2) {
-            for (int x = 0; x < raw_color.cblack[4]; ++x) {
-                for (int y = 0; y < raw_color.cblack[5]; ++y) {
-                    const auto index = y * 2 + x;
-                    black_level[index] = raw_color.cblack[6 + index];
-                }
-            }
-        }
-        return black_level;
-    }
-
-    std::string GetCfaPattern(const LibRaw &raw) {
-        static const std::unordered_map<char, char> CDESC_TO_CFA = {
-            {'R', 0},
-            {'G', 1},
-            {'B', 2},
-            {'r', 0},
-            {'g', 1},
-            {'b', 2}
-        };
-        const auto &cdesc = raw.imgdata.idata.cdesc;
-        auto &mutable_raw = const_cast<LibRaw &>(raw); // LibRaw is not const correct :-(
-        return {
-            CDESC_TO_CFA.at(cdesc[mutable_raw.COLOR(0, 0)]),
-            CDESC_TO_CFA.at(cdesc[mutable_raw.COLOR(0, 1)]),
-            CDESC_TO_CFA.at(cdesc[mutable_raw.COLOR(1, 0)]),
-            CDESC_TO_CFA.at(cdesc[mutable_raw.COLOR(1, 1)])
-        };
-    }
-}
-
-LibRaw2DngConverter::LibRaw2DngConverter(const LibRaw &raw)
+LibRaw2DngConverter::LibRaw2DngConverter(const RawImage& raw)
     : OutputStream()
     , Raw(raw)
     , Tiff(SetTiffFields(TiffPtr(TIFFStreamOpen("", &OutputStream), TIFFClose)))
 {}
 
 LibRaw2DngConverter::TiffPtr LibRaw2DngConverter::SetTiffFields(LibRaw2DngConverter::TiffPtr tiff_ptr) {
-    const auto raw_color = Raw.imgdata.color;
+    const auto RawProcessor = Raw.GetRawProcessor();
+    const auto raw_color = RawProcessor->imgdata.color;
 
     const uint16_t bayer_pattern_dimensions[] = {2, 2};
 
@@ -70,7 +32,7 @@ LibRaw2DngConverter::TiffPtr LibRaw2DngConverter::SetTiffFields(LibRaw2DngConver
     TIFFSetField(tiff, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_UINT);
     TIFFSetField(tiff, TIFFTAG_CFAREPEATPATTERNDIM, &bayer_pattern_dimensions);
 
-    const std::string cfa = GetCfaPattern(Raw);
+    const std::string cfa = Raw.GetCfaPatternString();
     TIFFSetField(tiff, TIFFTAG_CFAPATTERN, cfa.c_str());
 
     TIFFSetField(tiff, TIFFTAG_MAKE, "hdr-plus");
@@ -94,15 +56,15 @@ LibRaw2DngConverter::TiffPtr LibRaw2DngConverter::SetTiffFields(LibRaw2DngConver
     TIFFSetField(tiff, TIFFTAG_CFALAYOUT, 1); // Rectangular (or square) layout
     TIFFSetField(tiff, TIFFTAG_CFAPLANECOLOR, 3, "\00\01\02"); // RGB https://www.awaresystems.be/imaging/tiff/tifftags/cfaplanecolor.html
 
-    const std::array<float, 4> black_level = GetBlackLevel(raw_color);
+    const std::array<float, 4> black_level = Raw.GetBlackLevel();
     TIFFSetField(tiff, TIFFTAG_BLACKLEVEL, 4, &black_level);
 
     static const uint32_t white_level = raw_color.maximum;
     TIFFSetField(tiff, TIFFTAG_WHITELEVEL, 1, &white_level);
     
-    if (Raw.imgdata.sizes.flip > 0) {
+    if (RawProcessor->imgdata.sizes.flip > 0) {
         // Seems that LibRaw uses LibTIFF notation.
-        TIFFSetField(tiff, TIFFTAG_ORIENTATION, Raw.imgdata.sizes.flip);
+        TIFFSetField(tiff, TIFFTAG_ORIENTATION, RawProcessor->imgdata.sizes.flip);
     } else {
         TIFFSetField(tiff, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
     }

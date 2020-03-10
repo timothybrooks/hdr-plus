@@ -6,7 +6,7 @@
 template <class T = float>
 struct TypedWhiteBalance {
     template<class TT>
-    TypedWhiteBalance(const TypedWhiteBalance<TT>& other)
+    explicit TypedWhiteBalance(const TypedWhiteBalance<TT>& other)
         : r(other.r)
         , g0(other.g0)
         , g1(other.g1)
@@ -25,6 +25,7 @@ struct TypedWhiteBalance {
     T g1;
     T b;
 };
+
 using WhiteBalance = TypedWhiteBalance<float>;
 using CompiletimeWhiteBalance = TypedWhiteBalance<Halide::Expr>;
 
@@ -34,6 +35,14 @@ typedef uint16_t WhitePoint;
 typedef float Compression;
 typedef float Gain;
 
+enum class CfaPattern : int {
+    CFA_UNKNOWN = 0,
+    CFA_RGGB = 1,
+    CFA_GRBG = 2,
+    CFA_BGGR = 3,
+    CFA_GBRG = 4
+};
+
 /*
  * finish -- Applies a series of standard local and global image processing
  * operations to an input mosaicked image, producing a pleasant color output.
@@ -42,7 +51,7 @@ typedef float Gain;
  * and gain amounts. This produces natural-looking brightened shadows, without
  * blowing out highlights. The output values are 8-bit.
  */
-Halide::Func finish(Halide::Func input, int width, int height, const BlackPoint bp, const WhitePoint wp, const WhiteBalance &wb, const Compression c, const Gain g);
-Halide::Func finish(Halide::Func input, Halide::Expr width, Halide::Expr height, const Halide::Expr bp, const Halide::Expr wp, const CompiletimeWhiteBalance &wb, const Halide::Expr c, const Halide::Expr g);
+Halide::Func finish(Halide::Func input, int width, int height, BlackPoint bp, WhitePoint wp, const WhiteBalance &wb, CfaPattern cfa, Halide::Func ccm, Compression c, Gain g);
+Halide::Func finish(Halide::Func input, Halide::Expr width, Halide::Expr height, Halide::Expr bp, Halide::Expr wp, const CompiletimeWhiteBalance &wb, Halide::Expr cfa_pattern, Halide::Func ccm, Halide::Expr c, Halide::Expr g);
 
 #endif
