@@ -19,7 +19,7 @@ jobs:
       HALIDE_INSTALL_DIR: ${{github.workspace}}/3rdparty/Halide-master/install
       strategy:
       matrix:
-        target_arch: [x86, arm]
+        target_arch: [x86]
         target_bits: [32, 64]
         target_os: [linux]
         include:
