@@ -36,7 +36,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt install clang-9 llvm-9
-          sudo apt remove llvm-8 llvm-6
+          sudo apt remove llvm-8 llvm-6.0
 
       - uses: actions/checkout@v1
 
