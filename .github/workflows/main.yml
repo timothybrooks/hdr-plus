@@ -35,17 +35,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          if [[ ${{matrix.target_arch}} == x86 && ${{matrix.target_os}} == linux && ${{matrix.target_bits}} == 32 ]]; 
-            then
-            sudo apt-get install ${{matrix.cc}}-multilib ${{matrix.cxx}}-multilib
-          fi
-          if [[ ${{matrix.target_arch}} == arm ]]; then
-            if [[ ${{matrix.target_bits}} == 32 ]]; then
-              sudo apt-get install ${{matrix.cc}}-arm-linux-gnueabihf ${{matrix.cxx}}-arm-linux-gnueabihf
-            else
-              sudo apt-get install ${{matrix.cc}}-aarch64-linux-gnu ${{matrix.cxx}}-aarch64-linux-gnu
-            fi
-          fi
+          sudo apt install ${{matrix.cc}}
 
       - uses: actions/checkout@v1
 
