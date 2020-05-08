@@ -8,7 +8,7 @@ env:
 
 jobs:
   build_halide:
-    name: ${{matrix.target_os}}-${{matrix.target_arch}}-${{matrix.target_bits}}
+    name: build_halide-${{matrix.target_os}}-${{matrix.target_arch}}-${{matrix.target_bits}}
     runs-on: ${{matrix.host_os}}
     env:
       CC: ${{matrix.cc}}
@@ -23,7 +23,6 @@ jobs:
         target_bits: [32, 64]
         target_os: [linux]
         include:
-            #target operatings systems
           - target_os: linux
             host_os: ubuntu-20.04
             cc: clang
@@ -75,9 +74,28 @@ jobs:
 
   build_all:
     needs: build_halide
+    name: build_all-${{matrix.target_os}}-${{matrix.target_arch}}-${{matrix.target_bits}}
+    runs-on: ${{matrix.host_os}}
     env:
       BUILD_DIR: ${{github.workspace}}/build
       HALIDE_DISTRIB_DIR: ${{github.workspace}}/3rdparty/Halide
+      CC: ${{matrix.cc}}
+      CXX: ${{matrix.cxx}}
+      LD: ${{matrix.ld}}
+      THIRDPARTY_DIR: ${{github.workspace}}/3rdparty
+      HALIDE_BUILD_DIR: ${{github.workspace}}/3rdparty/Halide-master/build
+      HALIDE_INSTALL_DIR: ${{github.workspace}}/3rdparty/Halide-master/install
+    strategy:
+      matrix:
+        target_arch: [x86, arm]
+        target_bits: [32, 64]
+        target_os: [linux]
+        include:
+          - target_os: linux
+            host_os: ubuntu-20.04
+            cc: clang
+            cxx: clang++
+            ld: ld
       
     steps:
       - uses: actions/checkout@v1
