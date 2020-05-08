@@ -24,6 +24,7 @@ jobs:
 
       - name: Build Halide
         working-directory: ${{ github.workspace }}/3rdparty
+        compiler: clang
         run: |
           mkdir -p ${HALIDE_BUILD_DIR} && cd ${HALIDE_BUILD_DIR} 
 
