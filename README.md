@@ -18,9 +18,7 @@ make -j$(expr $(nproc) \+ 1)
 
 ### HDR+ algorithm examples:
 
-Timothy Brooks provided images (at the link below) that have burst shot inputs and the HDR+'s output.
-
-https://drive.google.com/drive/folders/1XR61IhzuYQU5eLQfBJ0KEMK83Aocta6g?usp=sharing
+Timothy Brooks provided images but they had to be taken off of Google Drive because the user titaniumtown doesn't have any space for it. If you have any suggestions, please contact titaniumtown.
 
 ### Compiled Binary Usage:
 ```
