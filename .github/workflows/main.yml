@@ -18,17 +18,17 @@ jobs:
       HALIDE_BUILD_DIR: ${{github.workspace}}/3rdparty/Halide-master/build
       HALIDE_INSTALL_DIR: ${{github.workspace}}/3rdparty/Halide-master/install
       strategy:
-      matrix:
-        target_arch: [x86]
-        target_bits: [32, 64]
-        target_os: [linux]
-        include:
-            #target operatings systems
-          - target_os: linux
-            host_os: ubuntu-20.04
-            cc: clang
-            cxx: clang++
-            ld: ld
+        matrix:
+          target_arch: [x86, arm]
+          target_bits: [32, 64]
+          target_os: [linux]
+          include:
+              #target operatings systems
+            - target_os: linux
+              host_os: ubuntu-20.04
+              cc: clang
+              cxx: clang++
+              ld: ld
 
     steps:
       - name: Configure Ubuntu/linux target os
