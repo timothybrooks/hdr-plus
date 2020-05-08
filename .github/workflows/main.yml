@@ -28,14 +28,6 @@ jobs:
             cc: clang-9
             cxx: clang++-9
             ld: ld
-          - target_os: osx
-            host_os: macos-latest
-            cc: clang
-            cxx: clang++
-            ld: ld
-        exclude:
-          - target_os: osx
-            target_arch: arm
 
     steps:
       - name: Configure Ubuntu/linux target os
@@ -97,14 +89,6 @@ jobs:
             cxx: clang++
             ld: ld
 
-          - target_os: osx
-            host_os: macos-latest
-            cc: clang
-            cxx: clang++
-            ld: ld
-        exclude:
-          - target_os: osx
-            target_arch: arm
     steps:
       - uses: actions/checkout@v1
 
