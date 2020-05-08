@@ -8,14 +8,13 @@ env:
 
 jobs:
   build_halide:
-    name: ${{matrix.target_os}}-${{matrix.target_arch}}-${{matrix.target_bits}}-${{matrix.llvm_version}}
+    name: ${{matrix.target_os}}-${{matrix.target_arch}}-${{matrix.target_bits}}
     runs-on: ${{matrix.host_os}}
     env:
       CC: ${{matrix.cc}}
       CXX: ${{matrix.cxx}}
       LD: ${{matrix.ld}}
-    env:
-      THIRDPARTY_DIR: ${{ github.workspace }}/3rdparty
+      THIRDPARTY_DIR: ${{github.workspace}}/3rdparty
       HALIDE_BUILD_DIR: ${{github.workspace}}/3rdparty/Halide-master/build
       HALIDE_INSTALL_DIR: ${{github.workspace}}/3rdparty/Halide-master/install
       strategy:
@@ -42,10 +41,6 @@ jobs:
             #no osx on arm, there is rumours of upcoming arm based macbooks in 2021 though, might want to update this part when those are released
           - target_os: osx
             target_arch: arm
-
-            #no 32-bit osx support
-          - target_os: osx
-            target_bits: 32
 
   steps:
     - name: Configure Ubuntu/linux target os
@@ -74,7 +69,7 @@ jobs:
           wget https://github.com/halide/Halide/archive/master.zip
           unzip -o master.zip
 
-      - name: Build Halide
+      - name: Build Halide-${{matrix.target_os}}-${{matrix.target_arch}}-${{matrix.target_bits}}
         working-directory: ${{ github.workspace }}/3rdparty
         run: |
           mkdir -p ${HALIDE_BUILD_DIR} && cd ${HALIDE_BUILD_DIR} 
