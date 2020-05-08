@@ -24,7 +24,7 @@ jobs:
         target_os: [linux]
         include:
           - target_os: linux
-            host_os: ubuntu-20.04
+            host_os: ubuntu-latest
             cc: clang
             cxx: clang++
             ld: ld
@@ -92,7 +92,7 @@ jobs:
         target_os: [linux]
         include:
           - target_os: linux
-            host_os: ubuntu-20.04
+            host_os: ubuntu-latest
             cc: clang
             cxx: clang++
             ld: ld
