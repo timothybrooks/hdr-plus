@@ -9,6 +9,9 @@ env:
 jobs:
   build_halide:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [clang]
     env:
       THIRDPARTY_DIR: ${{ github.workspace }}/3rdparty
       HALIDE_BUILD_DIR: ${{github.workspace}}/3rdparty/Halide-master/build
