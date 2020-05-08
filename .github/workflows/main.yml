@@ -5,7 +5,6 @@ on: [push, pull_request]
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
-  compiler: clang
 
 jobs:
   build_halide:
@@ -43,6 +42,9 @@ jobs:
   build_all:
     needs: build_halide
     runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          compiler: clang
     env:
       BUILD_DIR: ${{github.workspace}}/build
       HALIDE_DISTRIB_DIR: ${{github.workspace}}/3rdparty/Halide
