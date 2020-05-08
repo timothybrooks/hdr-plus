@@ -34,7 +34,8 @@ jobs:
         if: startsWith(matrix.host_os, 'ubuntu')
         shell: bash
         run: |
-          sudo apt-get update
+          sudo apt update
+          sudo apt upgrade
           sudo apt install clang-9 llvm-9
           sudo apt remove llvm-8 llvm-6.0
 
@@ -87,7 +88,13 @@ jobs:
             cc: clang
             cxx: clang++
             ld: ld
-      
+
+          - target_os: osx
+            host_os: macos-latest
+            cc: clang
+            cxx: clang++
+            ld: ld
+
     steps:
       - uses: actions/checkout@v1
 
