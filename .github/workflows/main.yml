@@ -34,11 +34,9 @@ jobs:
         if: startsWith(matrix.host_os, 'ubuntu')
         shell: bash
         run: |
-          sudo apt update
-          sudo apt upgrade
+          sudo apt-get update
           sudo apt install clang-9 llvm-9
           sudo apt remove llvm-8 llvm-6.0
-
       - uses: actions/checkout@v1
 
       - name: Download Halide
@@ -46,18 +44,15 @@ jobs:
           mkdir -p ${THIRDPARTY_DIR} && cd ${THIRDPARTY_DIR}
           wget https://github.com/halide/Halide/archive/master.zip
           unzip -o master.zip
-
       - name: Build Halide-${{matrix.target_os}}-${{matrix.target_arch}}-${{matrix.target_bits}}
         working-directory: ${{ github.workspace }}/3rdparty
         run: |
           mkdir -p ${HALIDE_BUILD_DIR} && cd ${HALIDE_BUILD_DIR} 
-
           cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${HALIDE_INSTALL_DIR} \
               -DWITH_TESTS=OFF -DWITH_APPS=OFF -DWITH_TUTORIALS=OFF \
               -DWITH_ARM=OFF -DWITH_AARCH64=OFF -DWITH_HEXAGON=OFF -DWITH_MIPS=OFF -DWITH_POWERPC=OFF -DWITH_NVPTX=OFF -DWITH_RISCV=OFF \
               ..
           make -j 8 install
-
       - name: Upload Install Directory
         uses: actions/upload-artifact@v1
         with:
@@ -88,7 +83,7 @@ jobs:
             cc: clang
             cxx: clang++
             ld: ld
-
+      
     steps:
       - uses: actions/checkout@v1
 
@@ -102,7 +97,6 @@ jobs:
         run: |
           ls -lha ${{github.workspace}}/3rdparty
           ls -lha ${HALIDE_DISTRIB_DIR}
-
       - name: Install Dependencies
         run: sudo apt update && sudo apt install -y libtiff-dev libraw-dev libpng-dev libjpeg-dev zlib1g-dev
 
@@ -112,7 +106,6 @@ jobs:
         run: |
           mkdir -p ${BUILD_DIR} && cd ${BUILD_DIR}
           cmake -DHALIDE_DISTRIB_DIR=${HALIDE_DISTRIB_DIR} -DCMAKE_BUILD_TYPE=$BUILD_TYPE ..
-
       - name: Build
         shell: bash
         working-directory: ${{github.workspace}}
