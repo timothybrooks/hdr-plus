@@ -5,6 +5,7 @@ on: [push, pull_request]
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
+  compiler: clang
 
 jobs:
   build_halide:
@@ -24,7 +25,6 @@ jobs:
 
       - name: Build Halide
         working-directory: ${{ github.workspace }}/3rdparty
-        compiler: clang
         run: |
           mkdir -p ${HALIDE_BUILD_DIR} && cd ${HALIDE_BUILD_DIR} 
 
