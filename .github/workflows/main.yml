@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt install clang-9
+          sudo apt install clang-9 llvm-9
 
       - uses: actions/checkout@v1
 
