@@ -18,7 +18,6 @@ jobs:
       HALIDE_BUILD_DIR: ${{github.workspace}}/3rdparty/Halide-master/build
       HALIDE_INSTALL_DIR: ${{github.workspace}}/3rdparty/Halide-master/install
       strategy:
-      fail-fast: false  # Keep running even if one job fails
       matrix:
         target_arch: [x86, arm]
         target_bits: [32, 64]
