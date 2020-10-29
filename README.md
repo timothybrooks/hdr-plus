@@ -18,7 +18,7 @@ make -j$(expr $(nproc) \+ 1)
 
 ### HDR+ algorithm examples:
 
-Timothy Brooks provided images but they had to be taken off of Google Drive because the user titaniumtown doesn't have any space for it. If you have any suggestions, please contact titaniumtown.
+There are three zip files with examples of the HDR+ algorithm at: http://www.gardling.com/hdr_plus
 
 ### Compiled Binary Usage:
 ```
