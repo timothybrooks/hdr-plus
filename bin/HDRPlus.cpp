@@ -8,7 +8,7 @@
 #include <include/stb_image_write.h>
 
 #include <src/Burst.h>
-#include <hdrplus_pipeline/hdrplus_pipeline.h>
+#include <hdrplus_pipeline.h>
 
 /*
  * HDRPlus Class -- Houses file I/O, defines pipeline attributes and calls

@@ -1,16 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
 
-macro(link_halide)
-    if("${HALIDE_DISTRIB_DIR}" STREQUAL " ")
-        message(FATAL_ERROR "Specify HALIDE_DISTRIB_DIR variable in the cmake options.")
-    endif()
-    find_package(Threads) # fix dynamic linking for halide
-    set(HALIDE_DISTRIB_USE_STATIC_LIBRARY OFF)
-    include(${HALIDE_DISTRIB_DIR}/halide.cmake)
-    include_directories(${HALIDE_DISTRIB_DIR}/include ${HALIDE_DISTRIB_DIR}/tools)
-    link_directories(${HALIDE_DISTRIB_DIR}/lib ${HALIDE_DISTRIB_DIR}/bin)
-endmacro()
-
 macro(link_libtiff)
     # Link as follows:
     # target_link_libraries(TARGET ${TIFF_LIBRARIES})
