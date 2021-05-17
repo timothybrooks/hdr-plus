@@ -15,8 +15,8 @@ jobs:
       CXX: ${{matrix.cxx}}
       LD: ${{matrix.ld}}
       THIRDPARTY_DIR: ${{github.workspace}}/3rdparty
-      HALIDE_BUILD_DIR: ${{github.workspace}}/3rdparty/Halide-master/build
-      HALIDE_INSTALL_DIR: ${{github.workspace}}/3rdparty/Halide-master/install
+      HALIDE_BUILD_DIR: ${{github.workspace}}/3rdparty/Halide-10.0.0/build
+      HALIDE_INSTALL_DIR: ${{github.workspace}}/3rdparty/Halide-10.0.0/install
     strategy:
       matrix:
         target_arch: [x86, arm]
@@ -25,8 +25,8 @@ jobs:
         include:
           - target_os: linux
             host_os: ubuntu-18.04
-            cc: clang-9
-            cxx: clang++-9
+            cc: clang-10
+            cxx: clang++-10
             ld: ld
 
     steps:
@@ -35,19 +35,19 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt install clang-9 llvm-9
-          sudo apt remove llvm-8 llvm-6.0
+          sudo apt install clang-10 llvm-10 libclang-10-dev
+          sudo apt purge clang-9 llvm-9 clang-8 llvm-8 clang-6.0 llvm-6.0
       - uses: actions/checkout@v1
 
       - name: Download Halide
         run: |
           mkdir -p ${THIRDPARTY_DIR} && cd ${THIRDPARTY_DIR}
-          wget https://github.com/halide/Halide/archive/master.zip
-          unzip -o master.zip
+          wget https://github.com/halide/Halide/archive/v10.0.0.zip
+          unzip -o v10.0.0.zip
       - name: Build Halide-${{matrix.target_os}}-${{matrix.target_arch}}-${{matrix.target_bits}}
         working-directory: ${{ github.workspace }}/3rdparty
         run: |
-          mkdir -p ${HALIDE_BUILD_DIR} && cd ${HALIDE_BUILD_DIR} 
+          mkdir -p ${HALIDE_BUILD_DIR} && cd ${HALIDE_BUILD_DIR}
           cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${HALIDE_INSTALL_DIR} \
               -DWITH_TESTS=OFF -DWITH_APPS=OFF -DWITH_TUTORIALS=OFF \
               -DWITH_ARM=OFF -DWITH_AARCH64=OFF -DWITH_HEXAGON=OFF -DWITH_MIPS=OFF -DWITH_POWERPC=OFF -DWITH_NVPTX=OFF -DWITH_RISCV=OFF \
@@ -57,7 +57,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: halide-install
-          path: ${{ github.workspace }}/3rdparty/Halide-master/install/
+          path: ${{ github.workspace }}/3rdparty/Halide-10.0.0/install/
 
   build_all:
     needs: build_halide
@@ -70,8 +70,6 @@ jobs:
       CXX: ${{matrix.cxx}}
       LD: ${{matrix.ld}}
       THIRDPARTY_DIR: ${{github.workspace}}/3rdparty
-      HALIDE_BUILD_DIR: ${{github.workspace}}/3rdparty/Halide-master/build
-      HALIDE_INSTALL_DIR: ${{github.workspace}}/3rdparty/Halide-master/install
     strategy:
       matrix:
         target_arch: [x86, arm]
@@ -83,7 +81,7 @@ jobs:
             cc: clang
             cxx: clang++
             ld: ld
-      
+
     steps:
       - uses: actions/checkout@v1
 
@@ -114,6 +112,6 @@ jobs:
 #      - name: Test
 #        working-directory: ${{runner.workspace}}/build
 #        shell: bash
-#        # Execute tests defined by the CMake configuration.  
+#        # Execute tests defined by the CMake configuration.
 #        # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
 #        run: ctest -C $BUILD_TYPE

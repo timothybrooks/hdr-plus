@@ -5,7 +5,6 @@
 #define HALIDE_LOAD_RAW_H
 
 #include "Halide.h"
-#include "halide_image_io.h"
 #include <libraw/libraw.h>
 
 namespace Halide {

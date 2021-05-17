@@ -8,7 +8,16 @@ include("macro.cmake")
 set(CMAKE_CXX_STANDARD 11)
 
 # Define dependencies
-link_halide()
+if(DEFINED HALIDE_DISTRIB_DIR)
+  list(APPEND CMAKE_PREFIX_PATH ${HALIDE_DISTRIB_DIR})
+endif(DEFINED HALIDE_DISTRIB_DIR)
+
+find_package(Halide REQUIRED)
+
+if(DEFINED HALIDE_DISTRIB_DIR)
+  link_directories(BEFORE "${HALIDE_DISTRIB_DIR}/lib")
+endif(DEFINED HALIDE_DISTRIB_DIR)
+
 link_libtiff()
 
 find_package(ZLIB REQUIRED)
@@ -27,15 +36,14 @@ set(header_files
     src/dngwriter.h
     src/LibRaw2DngConverter.h)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${HALIDE_DISTRIB_DIR}/include ${HALIDE_DISTRIB_DIR}/tools ${RAW2DNG_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${RAW2DNG_INCLUDE_DIRS})
 include_directories(${CMAKE_BINARY_DIR}/genfiles)
 
-set(HALIDE_TARGET "")
-set(HALIDE_TARGET_FEATURES "")
-halide_library(hdrplus_pipeline
-    SRCS src/hdrplus_pipeline_generator.cpp src/align.cpp src/merge.cpp src/finish.cpp src/util.cpp
+add_executable(hdrplus_pipeline_generator src/hdrplus_pipeline_generator.cpp src/align.cpp src/merge.cpp src/finish.cpp src/util.cpp)
+target_link_libraries(hdrplus_pipeline_generator PRIVATE Halide::Generator)
+add_halide_library(hdrplus_pipeline
     # GENERATOR_DEPS  # We don't have any yet
-    GENERATOR_NAME hdrplus_pipeline
+    FROM hdrplus_pipeline_generator
     # GENERATOR_ARGS  # We don't have any yet
     FUNCTION_NAME hdrplus_pipeline
     # HALIDE_TARGET ${HALIDE_TARGET}  # TODO: add option with custom HALIDE_TARGET
@@ -43,9 +51,10 @@ halide_library(hdrplus_pipeline
     # EXTRA_OUTPUTS "stmt;html;schedule") # uncomment for extra output
 )
 
-halide_library(align_and_merge
-    SRCS src/align_and_merge_generator.cpp src/align.cpp src/merge.cpp src/util.cpp
-    GENERATOR_NAME align_and_merge
+add_executable(align_and_merge_generator src/align_and_merge_generator.cpp src/align.cpp src/merge.cpp src/util.cpp)
+target_link_libraries(align_and_merge_generator PRIVATE Halide::Generator)
+add_halide_library(align_and_merge
+    FROM align_and_merge_generator
     FUNCTION_NAME align_and_merge
     # HALIDE_TARGET ${HALIDE_TARGET}  # TODO: add option with custom HALIDE_TARGET
     # HALIDE_TARGET_FEATURES ${HALIDE_TARGET_FEATURES}  # TODO: add option with custom HALIDE_TARGET
