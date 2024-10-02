@@ -83,7 +83,7 @@ Func gauss(Func input, Buffer<float> k, RDom r, std::string name) {
 
         val = sum(blur_x(x, y + r) * k(r));
 
-        if (input.output_types()[0] == UInt(16)) val = u16(val);
+        if (input.types()[0] == UInt(16)) val = u16(val);
 
         output(x, y) = val;
     }
@@ -93,7 +93,7 @@ Func gauss(Func input, Buffer<float> k, RDom r, std::string name) {
 
         val = sum(blur_x(x, y + r, c) * k(r));
 
-        if (input.output_types()[0] == UInt(16)) val = u16(val);
+        if (input.types()[0] == UInt(16)) val = u16(val);
 
         output (x, y, c) = val;
     }

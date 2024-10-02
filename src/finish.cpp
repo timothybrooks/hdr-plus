@@ -87,7 +87,7 @@ Func demosaic(Func input, Expr width, Expr height) {
 
     // mirror input image with overlapping edges to keep mosaic pattern consistency
 
-    Func input_mirror = BoundaryConditions::mirror_interior(input, 0, width, 0, height);
+    Func input_mirror = BoundaryConditions::mirror_interior(input, {Range(0, width), Range(0, height)});
 
     // demosaic filters
 
@@ -197,7 +197,7 @@ Func bilateral_filter(Func input, Expr width, Expr height) {
     k(-3,  2) = 0.002646f; k(-2,  2) = 0.010149f; k(-1,  2) = 0.022718f; k(0,  2) = 0.029715f; k(1,  2) = 0.022718f; k(2,  2) = 0.010149f; k(3,  2) = 0.002646f;
     k(-3,  3) = 0.000690f; k(-2,  3) = 0.002646f; k(-1,  3) = 0.005923f; k(0,  3) = 0.007748f; k(1,  3) = 0.005923f; k(2,  3) = 0.002646f; k(3,  3) = 0.000690f;
 
-    Func input_mirror = BoundaryConditions::mirror_interior(input, 0, width, 0, height);
+    Func input_mirror = BoundaryConditions::mirror_interior(input, {Range(0, width), Range(0, height)});
 
     Expr dist = f32(i32(input_mirror(x, y, c)) - i32(input_mirror(x + dx, y + dy, c)));
 
@@ -251,7 +251,7 @@ Func desaturate_noise(Func input, Expr width, Expr height) {
 
     Var x, y, c;
 
-    Func input_mirror = BoundaryConditions::mirror_image(input, 0, width, 0, height);
+    Func input_mirror = BoundaryConditions::mirror_image(input, {Range(0, width), Range(0, height)});
 
     Func blur = gauss_15x15(gauss_15x15(input_mirror, "desaturate_noise_blur1"), "desaturate_noise_blur2");
 
@@ -347,8 +347,8 @@ Func combine(Func im1, Func im2, Expr width, Expr height, Func dist) {
 
     // mirror input images
 
-    Func im1_mirror = BoundaryConditions::repeat_edge(im1, 0 , width, 0, height);
-    Func im2_mirror = BoundaryConditions::repeat_edge(im2, 0 , width, 0, height);
+    Func im1_mirror = BoundaryConditions::repeat_edge(im1, {Range(0, width), Range(0, height)});
+    Func im2_mirror = BoundaryConditions::repeat_edge(im2, {Range(0, width), Range(0, height)});
 
     // initial blurred layers to compute laplacian pyramid
 

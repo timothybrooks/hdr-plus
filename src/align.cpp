@@ -74,7 +74,7 @@ Func align(const Halide::Func imgs, Halide::Expr width, Halide::Expr height) {
 
     // mirror input with overlapping edges
 
-    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs, 0, width, 0, height);
+    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs, {Range(0, width), Range(0, height)});
 
     // downsampled layers for alignment
 
@@ -114,7 +114,7 @@ Func align(const Halide::Func imgs, Halide::Expr width, Halide::Expr height) {
 
     alignment(tx, ty, n) = 2 * P(alignment_0(tx, ty, n));
 
-    Func alignment_repeat = BoundaryConditions::repeat_edge(alignment, 0, num_tx, 0, num_ty);
+    Func alignment_repeat = BoundaryConditions::repeat_edge(alignment, {Range(0, num_tx), Range(0, num_ty)});
     
     return alignment_repeat;
 }
