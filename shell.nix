@@ -1,13 +1,13 @@
-with import <nixpkgs> {};
+with import <nixpkgs> { };
 
 stdenv.mkDerivation {
-    name = "hdr-plus";
-    buildInputs = [
-        cmake
-        halide
-        libtiff
-        libpng
-        gnumake
-        libraw
-    ];
+  name = "hdr-plus";
+  buildInputs = [
+    cmake
+    halide
+    libtiff
+    libpng
+    gnumake
+    libraw
+  ];
 }
