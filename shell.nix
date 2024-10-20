@@ -7,5 +7,7 @@ stdenv.mkDerivation {
         halide
         libtiff
         libpng
+        gnumake
+        libraw
     ];
 }

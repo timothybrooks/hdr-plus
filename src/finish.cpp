@@ -398,13 +398,13 @@ Func combine(Func im1, Func im2, Expr width, Expr height, Func dist) {
 
         // current gauss layer of images
 
-        blurred1 = gauss_7x7(blurred1, "img1_layer_" + layer_str);
-        blurred2 = gauss_7x7(blurred2, "img1_layer_" + layer_str);
+        blurred1 = gauss_7x7(blurred1, "img1_layer_" + layer_str + "_1");
+        blurred2 = gauss_7x7(blurred2, "img1_layer_" + layer_str + "_2");
 
         // current gauss layer of masks
 
-        mask1 = gauss_7x7(mask1, "mask1_layer_" + layer_str);
-        mask2 = gauss_7x7(mask2, "mask2_layer_" + layer_str);
+        mask1 = gauss_7x7(mask1, "mask1_layer_" + layer_str + "_1");
+        mask2 = gauss_7x7(mask2, "mask2_layer_" + layer_str + "_2");
     }
 
     // add the highest pyramid layer (lowest frequency band)
