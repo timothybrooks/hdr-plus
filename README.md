@@ -4,7 +4,7 @@ Currently maintained by [Simon Gardling](https://github.com/Titaniumtown)
 
 ### Compilation instructions:
 1. Install the [Nix](https://nixos.org/) package manager
-2. Run the below commands
+2. Run the below commands:
 ```
 nix-shell -I shell.nix # enter a development environment
 mkdir build
