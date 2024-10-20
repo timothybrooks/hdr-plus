@@ -115,7 +115,8 @@ Func gauss_7x7(Func input, std::string name) {
 
     // gaussian kernel
 
-    Buffer<float> k(7, "gauss_7x7_kernel_" + name);
+    Buffer<float> k(7);
+    // , "gauss_7x7_kernel_" + name
     k.translate({-3});
 
     Var x;
@@ -132,7 +133,8 @@ Func gauss_15x15(Func input, std::string name) {
 
     // gaussian kernel
 
-    Buffer<float> k(15, "gauss_15x15_" + name);
+    Buffer<float> k(15);
+    // , "gauss_15x15_" + name
     k.translate({-7});
 
     Var x;
