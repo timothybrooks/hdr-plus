@@ -37,7 +37,7 @@ Func box_down2(Func input, std::string name) {
 Func gauss_down4(Func input, std::string name) {
 
     Func output(name);
-    Buffer<uint32_t> k(5, 5, "gauss_down4_kernel");
+    Buffer<uint32_t> k(5, 5, "gauss_down4_kernel_" + name);
     k.translate({-2, -2});
 
     Var x, y, n;
@@ -83,7 +83,7 @@ Func gauss(Func input, Buffer<float> k, RDom r, std::string name) {
 
         val = sum(blur_x(x, y + r) * k(r));
 
-        if (input.output_types()[0] == UInt(16)) val = u16(val);
+        if (input.types()[0] == UInt(16)) val = u16(val);
 
         output(x, y) = val;
     }
@@ -93,7 +93,7 @@ Func gauss(Func input, Buffer<float> k, RDom r, std::string name) {
 
         val = sum(blur_x(x, y + r, c) * k(r));
 
-        if (input.output_types()[0] == UInt(16)) val = u16(val);
+        if (input.types()[0] == UInt(16)) val = u16(val);
 
         output (x, y, c) = val;
     }
@@ -115,7 +115,8 @@ Func gauss_7x7(Func input, std::string name) {
 
     // gaussian kernel
 
-    Buffer<float> k(7, "gauss_7x7_kernel");
+    Buffer<float> k(7);
+    // , "gauss_7x7_kernel_" + name
     k.translate({-3});
 
     Var x;
@@ -132,7 +133,8 @@ Func gauss_15x15(Func input, std::string name) {
 
     // gaussian kernel
 
-    Buffer<float> k(15, "gauss_15x15");
+    Buffer<float> k(15);
+    // , "gauss_15x15_" + name
     k.translate({-7});
 
     Var x;

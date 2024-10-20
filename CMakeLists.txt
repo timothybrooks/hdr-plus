@@ -5,7 +5,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
 include("macro.cmake")
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 20)
 
 # Define dependencies
 if(DEFINED HALIDE_DISTRIB_DIR)

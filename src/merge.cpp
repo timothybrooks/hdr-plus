@@ -26,7 +26,7 @@ Func merge_temporal(Halide::Func imgs, Expr width, Expr height, Expr frames, Fun
 
     // mirror input with overlapping edges
 
-    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs, 0, width, 0, height);
+    Func imgs_mirror = BoundaryConditions::mirror_interior(imgs, {Range(0, width), Range(0, height)});
 
     // downsampled layer for computing L1 distances
 
