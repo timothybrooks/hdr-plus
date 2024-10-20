@@ -1,5 +1,6 @@
 # HDR+ Implementation
 Original Document on the subject (by Timothy Brooks): https://timothybrooks.com/tech/hdr-plus
+
 Currently maintained by [Simon Gardling](https://github.com/Titaniumtown)
 
 ### Compilation instructions:
