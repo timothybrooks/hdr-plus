@@ -21,7 +21,7 @@ public:
   const Compression c;
   const Gain g;
 
-  HDRPlus(Burst burst, const Compression c, const Gain g)
+  HDRPlus(const Burst &burst, const Compression c, const Gain g)
       : burst(burst), c(c), g(g) {}
 
   Halide::Runtime::Buffer<uint8_t> process() {
