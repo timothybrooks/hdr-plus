@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.10) # Halide 19.0 requires 3.28
 project(HDR_PLUS)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -24,6 +24,10 @@ find_package(ZLIB REQUIRED)
 find_package(PNG REQUIRED)
 find_package(JPEG REQUIRED)
 find_library(LIBRAW_LIBRARY NAMES raw raw_r)
+
+if (MSVC)
+    add_compile_definitions("NOMINMAX")
+endif()
 
 set(src_files
     src/InputSource.cpp
@@ -64,8 +68,8 @@ add_halide_library(align_and_merge
 
 add_executable(hdrplus bin/HDRPlus.cpp ${src_files})
 add_dependencies(hdrplus hdrplus_pipeline)
-target_link_libraries(hdrplus hdrplus_pipeline Halide png ${LIBRAW_LIBRARY} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
+target_link_libraries(hdrplus hdrplus_pipeline Halide::Halide ${PNG_LIBRARIES} ${LIBRAW_LIBRARY} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
 
 add_executable(stack_frames bin/stack_frames.cpp ${src_files})
 add_dependencies(stack_frames align_and_merge)
-target_link_libraries(stack_frames Halide align_and_merge ${LIBRAW_LIBRARY} ${PNG_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
+target_link_libraries(stack_frames Halide::Halide align_and_merge ${LIBRAW_LIBRARY} ${PNG_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
