@@ -15,7 +15,7 @@ make -j`nproc`
 ```
 
 ### HDR+ algorithm examples:
-There are three zip files with examples of the HDR+ algorithm at: https://www.gardling.com/hdr_plus
+You can download the examples from [this torrent](./hdr_plus_examples.torrent). Make sure to seed!
 
 ### Compiled Binary Usage:
 ```
