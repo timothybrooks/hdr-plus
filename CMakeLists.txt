@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.10) # Halide 19.0 requires 3.28
-project(HDR_PLUS)
+cmake_minimum_required(VERSION 3.22)
+project(HDR_PLUS LANGUAGES CXX)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
