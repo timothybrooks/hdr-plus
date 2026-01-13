@@ -7,7 +7,7 @@ Halide::Runtime::Buffer<uint16_t> Burst::ToBuffer() const {
 
   Halide::Runtime::Buffer<uint16_t> result(GetWidth(), GetHeight(),
                                            Raws.size());
-  for (int i = 0; i < Raws.size(); ++i) {
+  for (size_t i = 0; i < Raws.size(); ++i) {
     auto resultSlice = result.sliced(2, i);
     Raws[i].CopyToBuffer(resultSlice);
   }
