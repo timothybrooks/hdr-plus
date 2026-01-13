@@ -39,7 +39,7 @@ WhiteBalance RawImage::GetWhiteBalance() const {
 }
 
 void RawImage::CopyToBuffer(Halide::Runtime::Buffer<uint16_t> &buffer) const {
-  const auto image_data = (uint16_t *)RawProcessor->imgdata.rawdata.raw_image;
+  auto *image_data = reinterpret_cast<uint16_t *>(RawProcessor->imgdata.rawdata.raw_image);
   const auto raw_width = RawProcessor->imgdata.rawdata.sizes.raw_width;
   const auto raw_height = RawProcessor->imgdata.rawdata.sizes.raw_height;
   const auto top = RawProcessor->imgdata.rawdata.sizes.top_margin;
