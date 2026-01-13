@@ -3,27 +3,21 @@ project(HDR_PLUS LANGUAGES CXX)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
-include("macro.cmake")
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Define dependencies
 if(DEFINED HALIDE_DISTRIB_DIR)
   list(APPEND CMAKE_PREFIX_PATH ${HALIDE_DISTRIB_DIR})
-endif(DEFINED HALIDE_DISTRIB_DIR)
+endif()
 
 find_package(Halide REQUIRED)
-
-if(DEFINED HALIDE_DISTRIB_DIR)
-  link_directories(BEFORE "${HALIDE_DISTRIB_DIR}/lib")
-endif(DEFINED HALIDE_DISTRIB_DIR)
-
-link_libtiff()
-
+find_package(TIFF REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(PNG REQUIRED)
 find_package(JPEG REQUIRED)
 find_library(LIBRAW_LIBRARY NAMES raw raw_r)
+find_library(TIFFXX_LIBRARY NAMES tiffxx)
 
 if (MSVC)
     add_compile_definitions("NOMINMAX")
@@ -69,11 +63,11 @@ target_include_directories(hdrplus PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}/genfiles)
 add_dependencies(hdrplus hdrplus_pipeline)
-target_link_libraries(hdrplus PRIVATE hdrplus_pipeline Halide::Halide ${PNG_LIBRARIES} ${LIBRAW_LIBRARY} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
+target_link_libraries(hdrplus PRIVATE hdrplus_pipeline Halide::Halide PNG::PNG ${LIBRAW_LIBRARY} TIFF::TIFF ${TIFFXX_LIBRARY})
 
 add_executable(stack_frames bin/stack_frames.cpp ${src_files})
 target_include_directories(stack_frames PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}/genfiles)
 add_dependencies(stack_frames align_and_merge)
-target_link_libraries(stack_frames PRIVATE Halide::Halide align_and_merge ${LIBRAW_LIBRARY} ${PNG_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
+target_link_libraries(stack_frames PRIVATE Halide::Halide align_and_merge ${LIBRAW_LIBRARY} PNG::PNG JPEG::JPEG TIFF::TIFF ${TIFFXX_LIBRARY})
