@@ -3,15 +3,20 @@ Original Document on the subject (by Timothy Brooks): https://timothybrooks.com/
 
 Currently maintained by [Simon Gardling](https://github.com/Titaniumtown)
 
-### Compilation instructions:
-1. Install the [Nix](https://nixos.org/) package manager
-2. Run the below commands:
+### Quick Start (Nix Flakes)
+
+Build the package directly:
+```bash
+nix build
+./result/bin/hdrplus
 ```
-nix-shell -I shell.nix # enter a development environment
-mkdir build
-cd build
+
+Or enter a development shell:
+```bash
+nix develop
+mkdir build && cd build
 cmake ..
-make -j`nproc`
+make -j$(nproc)
 ```
 
 ### HDR+ algorithm examples:
