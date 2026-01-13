@@ -1,8 +1,7 @@
 // basic raw image loader for Halide::Buffer<T> or other image with same API
 // code largely appropriated from halide_image_io.h
 
-#ifndef HALIDE_LOAD_RAW_H
-#define HALIDE_LOAD_RAW_H
+#pragma once
 
 #include "Halide.h"
 #include <libraw/libraw.h>
@@ -59,5 +58,3 @@ bool load_raw(const std::string &filename, uint16_t *data, int width,
 
 } // namespace Tools
 } // namespace Halide
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef HDRPLUS_ALIGN_H_
-#define HDRPLUS_ALIGN_H_
+#pragma once
 
 #define T_SIZE 32 // Size of a tile in the bayer mosaiced image
 #define T_SIZE_2                                                               \
@@ -75,5 +74,3 @@ inline Halide::Expr idx_layer(Halide::Expr t, Halide::Expr i) {
 Halide::Func align(Halide::Buffer<uint16_t> imgs);
 Halide::Func align(const Halide::Func imgs, Halide::Expr width,
                    Halide::Expr height);
-
-#endif

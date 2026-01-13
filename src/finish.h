@@ -1,5 +1,4 @@
-#ifndef HDRPLUS_FINISH_H_
-#define HDRPLUS_FINISH_H_
+#pragma once
 
 #include "Halide.h"
 
@@ -48,5 +47,3 @@ Halide::Func finish(Halide::Func input, Halide::Expr width, Halide::Expr height,
                     Halide::Expr bp, Halide::Expr wp,
                     const CompiletimeWhiteBalance &wb, Halide::Expr cfa_pattern,
                     Halide::Func ccm, Halide::Expr c, Halide::Expr g);
-
-#endif

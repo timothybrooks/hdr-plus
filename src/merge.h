@@ -1,5 +1,4 @@
-#ifndef HDRPLUS_MERGE_H_
-#define HDRPLUS_MERGE_H_
+#pragma once
 
 #include "Halide.h"
 
@@ -10,4 +9,3 @@
 Halide::Func merge(Halide::Func imgs, Halide::Expr width, Halide::Expr height,
                    Halide::Expr frames, Halide::Func alignment);
 Halide::Func merge(Halide::Buffer<uint16_t> imgs, Halide::Func alignment);
-#endif
