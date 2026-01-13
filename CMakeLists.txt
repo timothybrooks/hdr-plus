@@ -37,13 +37,10 @@ set(src_files
 set(header_files
     src/InputSource.h
     src/Burst.h
-    src/dngwriter.h
     src/LibRaw2DngConverter.h)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${RAW2DNG_INCLUDE_DIRS})
-include_directories(${CMAKE_BINARY_DIR}/genfiles)
-
 add_executable(hdrplus_pipeline_generator src/hdrplus_pipeline_generator.cpp src/align.cpp src/merge.cpp src/finish.cpp src/util.cpp)
+target_include_directories(hdrplus_pipeline_generator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(hdrplus_pipeline_generator PRIVATE Halide::Generator)
 add_halide_library(hdrplus_pipeline
     # GENERATOR_DEPS  # We don't have any yet
@@ -56,6 +53,7 @@ add_halide_library(hdrplus_pipeline
 )
 
 add_executable(align_and_merge_generator src/align_and_merge_generator.cpp src/align.cpp src/merge.cpp src/util.cpp)
+target_include_directories(align_and_merge_generator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(align_and_merge_generator PRIVATE Halide::Generator)
 add_halide_library(align_and_merge
     FROM align_and_merge_generator
@@ -67,9 +65,15 @@ add_halide_library(align_and_merge
 
 
 add_executable(hdrplus bin/HDRPlus.cpp ${src_files})
+target_include_directories(hdrplus PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_BINARY_DIR}/genfiles)
 add_dependencies(hdrplus hdrplus_pipeline)
-target_link_libraries(hdrplus hdrplus_pipeline Halide::Halide ${PNG_LIBRARIES} ${LIBRAW_LIBRARY} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
+target_link_libraries(hdrplus PRIVATE hdrplus_pipeline Halide::Halide ${PNG_LIBRARIES} ${LIBRAW_LIBRARY} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
 
 add_executable(stack_frames bin/stack_frames.cpp ${src_files})
+target_include_directories(stack_frames PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_BINARY_DIR}/genfiles)
 add_dependencies(stack_frames align_and_merge)
-target_link_libraries(stack_frames Halide::Halide align_and_merge ${LIBRAW_LIBRARY} ${PNG_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
+target_link_libraries(stack_frames PRIVATE Halide::Halide align_and_merge ${LIBRAW_LIBRARY} ${PNG_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${TIFFXX_LIBRARY})
