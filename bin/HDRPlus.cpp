@@ -90,11 +90,11 @@ int main(int argc, char *argv[]) {
 
   while (argv[i][0] == '-') {
     if (argv[i][1] == 'c') {
-      c = atof(argv[++i]);
+      c = std::stof(argv[++i]);
       i++;
       continue;
     } else if (argv[i][1] == 'g') {
-      g = atof(argv[++i]);
+      g = std::stof(argv[++i]);
       i++;
       continue;
     } else {
